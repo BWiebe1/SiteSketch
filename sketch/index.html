@@ -304,7 +304,6 @@
     <div class="group">
       <button class="action" id="merge" title="Combine closed shapes that overlap into one outline">Merge overlapping</button>
       <button class="action" id="polyAll" title="Turn every set of lines that encloses an area into a polygon">Polygon from lines</button>
-      <button class="action" id="copy">Copy JSON</button>
     </div>
   </div>
   <div class="spacer"></div>
@@ -3547,19 +3546,6 @@
     updateReadout(); requestDraw();
     return true;
   }
-
-  document.getElementById('copy').addEventListener('click', () => {
-    const data = exportDrawing();
-    const text = JSON.stringify(data, null, 2);
-    const ok = () => toast('Copied ' + data.shapes.length + ' shape' + (data.shapes.length === 1 ? '' : 's') + ' as JSON');
-    const fallback = () => {
-      readout.innerHTML = '<pre style="margin:0;white-space:pre-wrap;user-select:text;max-height:40vh;overflow:auto">' +
-        text.replace(/</g, '&lt;') + '</pre>';
-      readout.style.pointerEvents = 'auto';
-      toast('Clipboard blocked. JSON shown below; select and copy it.');
-    };
-    try { navigator.clipboard.writeText(text).then(ok, fallback); } catch { fallback(); }
-  });
 
   // ---------- theme ----------
   const mq = matchMedia('(prefers-color-scheme: dark)');
