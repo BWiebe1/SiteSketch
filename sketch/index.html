@@ -132,7 +132,7 @@
   }
   .selbar .sep { width: 1px; background: var(--line); margin: 4px 2px; }
   .editpop {
-    position: absolute; z-index: 5; display: grid; gap: 8px; padding: 10px 12px;
+    position: absolute; z-index: 9; display: grid; gap: 8px; padding: 10px 12px;   /* above the selection toolbar */
     background: var(--panel); border: 1px solid var(--shape); border-radius: 8px;
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.16); max-width: calc(100% - 32px);
   }
@@ -234,6 +234,10 @@
     }
     .selbar button, .selbar .count, .selbar .sep { flex: none; }
     .layerpanel { top: auto; bottom: 12px; left: 8px; right: 8px; width: auto; }
+    /* number boxes (Set size, lengths, angles) dock at the top: the bottom is under the toolbars and the keyboard */
+    .editpop { left: 8px !important; right: 8px; top: 8px !important; max-width: none; }
+    .editpop input[type="number"] { flex: 1; width: auto; min-width: 0; }
+    .editpop .btns button { min-height: 44px; min-width: 88px; }
     .offbar { top: auto; bottom: 12px; left: 8px; right: 8px; }
     .divbar { left: 8px; right: 8px; transform: none; width: auto; bottom: 12px; }
     .pickbar { left: 8px; right: 8px; transform: none; bottom: 12px; }
