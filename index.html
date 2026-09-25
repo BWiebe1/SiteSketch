@@ -15,7 +15,7 @@
   body > header { padding-top: calc(8px + env(safe-area-inset-top, 0px)); }
 </style>
 <title>Site Sketch</title>
-<meta name="app-version" content="1.2.0">
+<meta name="app-version" content="1.2.1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;500;600&display=swap">
 <style>
@@ -193,6 +193,7 @@
     <button class="action" id="gridRef" title="Line the drawing grid up with a survey line">Grid line</button>
     <button class="action" id="openSurvey">Survey…</button>
     <button class="action" id="openExport">Export…</button>
+    <button class="action" id="checkUpdate" hidden>Check for updates</button>
     <div class="about"><b>Site Sketch</b> <span class="ver"></span><br>by Wiebe&#8217;s Spatial Solutions</div>
   </div>
 </header>
@@ -862,7 +863,8 @@
   // ---------- the embedded sketch (shared/CONTRACT.md) ----------
   const frame = $('sketchFrame');
   // published: sketch/index.html next to this page; opened from the project folder: ../sketch/index.html
-  frame.src = /\/georef\/(index\.html)?$/.test(location.pathname) ? '../sketch/index.html#embedded' : 'sketch/index.html#embedded';
+  const sketchV = '?v=' + document.querySelector('meta[name="app-version"]').content + '#embedded';
+  frame.src = (/\/georef\/(index\.html)?$/.test(location.pathname) ? '../sketch/index.html' : 'sketch/index.html') + sketchV;
   const toSketch = msg => frame.contentWindow && frame.contentWindow.postMessage({ protocol: 'emlid-sketch', version: 1, ...msg }, '*');
   window.addEventListener('message', e => {
     if (e.source !== frame.contentWindow) return;
@@ -1302,7 +1304,29 @@
   refresh();
   // installed as an app (the PWA build adds a manifest): keep a copy on the phone so it opens and works offline
   if ('serviceWorker' in navigator && !window.claude && location.protocol === 'https:' && document.querySelector('link[rel="manifest"]')) {
-    navigator.serviceWorker.register('sw.js').catch(() => { /* still works online */ });
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(reg => {
+      // look for a new version whenever the app comes back to the front
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+    }).catch(() => { /* still works online */ });
+    $('checkUpdate').hidden = false;
   }
+  // Check for updates: compare with the version online; if it's newer, drop the phone's copy and load it fresh
+  $('checkUpdate').addEventListener('click', async () => {
+    toast('Checking for updates…');
+    let online;
+    try {
+      const html = await (await fetch('index.html?check=' + Date.now(), { cache: 'no-store' })).text();
+      online = (html.match(/<meta name="app-version" content="([^"]+)">/) || [])[1];
+    } catch (e) { return toast('No connection. Try again when you have signal.'); }
+    if (!online) return toast('Could not read the version online. Try again.');
+    if (online === APP_VERSION) return toast(`You have the latest version (v${APP_VERSION})`);
+    toast(`Updating to v${online}…`);
+    try {
+      const regs = navigator.serviceWorker ? await navigator.serviceWorker.getRegistrations() : [];
+      await Promise.all(regs.map(r => r.unregister()));
+      if (window.caches) await Promise.all((await caches.keys()).map(k => caches.delete(k)));
+    } catch (e) { /* reload anyway */ }
+    location.replace(location.pathname + '?v=' + encodeURIComponent(online));
+  });
 })();
 </script>
