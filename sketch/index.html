@@ -88,6 +88,8 @@
   }
   .viewctl .seg, .viewctl .action { background: var(--panel); }
   .ico { width: 22px; height: 22px; display: block; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .action.icon { padding: 6px 9px; display: inline-flex; align-items: center; justify-content: center; min-width: 40px; }
+  .action.icon:disabled { opacity: 0.35; cursor: default; background: transparent; }
   .viewctl button:has(.ico) { padding: 6px 10px; display: inline-flex; align-items: center; justify-content: center; }
   #zLabel { min-width: 58px; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 13px; font-variant-numeric: tabular-nums; }
   button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
@@ -307,7 +309,8 @@
   </div>
   <div class="spacer"></div>
   <div class="group">
-    <button class="action" id="undo">Undo</button>
+    <button class="action icon" id="undo" title="Undo (Ctrl+Z)" aria-label="Undo" disabled><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 5L4 9.5 8.5 14"/><path d="M4 9.5h10a5.5 5.5 0 0 1 0 11h-4"/></svg></button>
+    <button class="action icon" id="redo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 5L20 9.5 15.5 14"/><path d="M20 9.5H10a5.5 5.5 0 0 0 0 11h4"/></svg></button>
     <button class="action" id="clear">Clear</button>
     <button class="action" id="tSettings" aria-expanded="false" aria-controls="settings">Settings</button>
   </div>
@@ -2388,6 +2391,7 @@
       const lr = live && live.length > 4 && !editTool() ? recognizeAt(live.map(toWorld), { ...opts, snapPts: liveTargets, snapLines: liveSegs }, 1 / view.s) : null;
       liveRes = lr ? { verts: lr.verts.map(toScreen), closed: lr.closed } : null;
       draw();
+      undoBtn.disabled = !history.length; redoBtn.disabled = !future.length;
     });
   }
 
@@ -2752,7 +2756,8 @@
     if (e.target.closest && e.target.closest('input, select')) return;
     if (e.code === 'Space') { e.preventDefault(); if (!spaceDown) { spaceDown = true; setCursor(); } }
     if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'd') document.getElementById('tDraw').click();
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); }
     if ((e.key === 'Delete' || e.key === 'Backspace') && group.length) { e.preventDefault(); deleteGroup(); }
     else if ((e.key === 'Delete' || e.key === 'Backspace') && vertSel) { e.preventDefault(); deleteVertex(); }
     else if ((e.key === 'Delete' || e.key === 'Backspace') && selected) { e.preventDefault(); deleteSelected(); }
@@ -3400,7 +3405,8 @@
   // so this just refreshes the screen (lengths re-label when the unit changes).
   const recomputeAll = () => { updateReadout(); requestDraw(); };
   const history = [];
-  function pushHistory() { history.push({ shapes: shapes.slice(), annots: annots.slice() }); if (history.length > 100) history.shift(); }
+  const future = [];   // undone steps, for Redo; any new edit clears it
+  function pushHistory() { history.push({ shapes: shapes.slice(), annots: annots.slice() }); if (history.length > 100) history.shift(); future.length = 0; }
   const toast = msg => {
     const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
     clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('show'), 1800);
@@ -3459,8 +3465,19 @@
     recomputeAll();
   };
   sqVal.addEventListener('input', readUnits); sqUnit.addEventListener('change', readUnits); roundInput.addEventListener('input', readUnits);
-  const undo = () => { if (!history.length) return; const h = history.pop(); shapes = h.shapes; annots = h.annots; recomputeAll(); };
-  document.getElementById('undo').addEventListener('click', undo);
+  const undo = () => {
+    if (!history.length) return;
+    future.push({ shapes: shapes.slice(), annots: annots.slice() });
+    const h = history.pop(); shapes = h.shapes; annots = h.annots; recomputeAll();
+  };
+  const redo = () => {
+    if (!future.length) return;
+    history.push({ shapes: shapes.slice(), annots: annots.slice() });
+    const h = future.pop(); shapes = h.shapes; annots = h.annots; recomputeAll();
+  };
+  const undoBtn = document.getElementById('undo'), redoBtn = document.getElementById('redo');
+  undoBtn.addEventListener('click', undo);
+  redoBtn.addEventListener('click', redo);
   document.getElementById('merge').addEventListener('click', () => mergeShapes());
   document.getElementById('clear').addEventListener('click', () => {
     if (!shapes.length && !annots.length) return;
