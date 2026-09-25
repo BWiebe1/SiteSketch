@@ -1957,7 +1957,25 @@
     });
   }
 
-  function editAnnot(d) {
+  // A drag that changed a dimension to another shape leaves that dimension open for typing an exact value; the
+  // dragged shapes are the ones that move. The dimension most in line with the drag is the one offered.
+  function offerDimAfterMove(moved, vec) {
+    if (!moved.length || Math.hypot(vec.x, vec.y) < 1e-9) return;
+    const ids = new Set(moved.map(x => x.id)), dv = norm(vec);
+    let best = null, bs = 0.2;
+    for (const d of annots) {
+      if (d.kind === 'ang' || !d.a || !d.b || !annotWork(d)) continue;
+      const ina = ids.has(d.a.sid), inb = ids.has(d.b.sid);
+      if (ina === inb) continue;   // both or neither dragged: the distance didn't change
+      const pp = dimPoints(d); if (!pp || dist(pp[0], pp[1]) < 1e-6) continue;
+      const score = Math.abs(dot(norm(sub(pp[1], pp[0])), dv));
+      if (score > bs) { bs = score; best = d; }
+    }
+    if (!best) return;
+    editAnnot(best, ids);
+    toast('Type the exact distance, or tap Cancel to keep it where you dropped it');
+  }
+  function editAnnot(d, movedIds) {
     if (d.kind === 'ang') { editAngle(d); return; }
     const pp = dimPoints(d);
     if (!pp) return;
@@ -1968,7 +1986,11 @@
     if (!sa || !sb) return;
     // the second shape moves, unless it is locked: then the first moves the other way
     if (sa === sb ? sa.locked : sa.locked && sb.locked) { toast(sa === sb ? 'This shape is locked. Unlock it to change its size.' : 'Both shapes are locked. Unlock the one that should move.'); return; }
-    const mover = sb.locked ? sa : sb, dir = sb.locked ? -1 : 1;
+    let mover = sb.locked ? sa : sb, dir = sb.locked ? -1 : 1, movers = null;
+    if (movedIds && sa !== sb) {   // after a drag: the dragged shapes move, whichever end of the dimension they are
+      dir = movedIds.has(sb.id) ? 1 : -1; mover = dir > 0 ? sb : sa;
+      movers = shapes.filter(x => movedIds.has(x.id));
+    }
     const m = toScreen(mul(add(p1, p2), 0.5));
     const deltaFor = v => (v > 0 ? toWorldLen(v) - L : 0);
     openEditor(m.x, m.y, [{ label: 'Distance', value: toUnitsNum(L) }], ([v]) => {
@@ -1984,7 +2006,7 @@
         });
       } else {
         selected = null;
-        editTargets([mover], sh => translateShape(sh, mul(u, delta * dir)));
+        editTargets(movers || [mover], sh => translateShape(sh, mul(u, delta * dir)));
       }
       updateReadout(); requestDraw();
     }, ([v]) => {
@@ -2498,6 +2520,7 @@
     const ring = JSON.parse(JSON.stringify(slidRing(f)));
     editSelected(sh => { if (f.ri === 0) sh.result.verts = ring; else sh.result.holes[f.ri - 1] = ring; sh.fixed = true; });
     toast('Moved ' + fmtLen(Math.abs(f.d)));
+    if (!f.closed && f.base.length === 2 && selected) offerDimAfterMove([selected], mul(f.n, f.d));   // the whole line moved
   }
   function drawSlidePreview() {
     const f = eslide; if (!f || mode !== 'edgeslide' || !f.moved) return;
@@ -3277,7 +3300,11 @@
       else requestDraw();
       return;
     }
-    if (mode === 'move' && e.pointerId === drawId) { mode = null; drawId = null; snapHit = null; setCursor(); updateReadout(); requestDraw(); return; }
+    if (mode === 'move' && e.pointerId === drawId) {
+      mode = null; drawId = null; snapHit = null; setCursor(); updateReadout(); requestDraw();
+      if (!cancelled && movedOnce) offerDimAfterMove(movingGroup ? group.slice() : [selected].filter(Boolean), applied);
+      return;
+    }
     if (mode === 'edgeslide' && e.pointerId === drawId) {
       mode = null; drawId = null;
       const f = eslide; eslide = null;
