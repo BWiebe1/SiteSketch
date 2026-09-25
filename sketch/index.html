@@ -233,25 +233,29 @@
       flex-wrap: nowrap; justify-content: flex-start; gap: 6px; overflow-x: auto; -webkit-overflow-scrolling: touch;
     }
     /* every tool fits in one row: the buttons share the width equally */
-    .viewctl { gap: 2px; padding: 4px 4px calc(4px + env(safe-area-inset-bottom, 0px)); overflow-x: visible; }
+    .viewctl {
+      display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px;
+      padding: 4px 4px calc(4px + env(safe-area-inset-bottom, 0px)); overflow-x: visible;
+    }
+    :root { --bar-h: 104px; }   /* two rows of 46 px buttons, gap and padding */
     .viewctl .seg { display: contents; }
     .viewctl .seg:has(#zIn) { display: none; }   /* pinch to zoom instead */
     .viewctl button { flex: 1 1 0; min-width: 0; min-height: 46px; padding: 6px 2px; border-radius: 8px; border: 0; }
     .viewctl .seg button + button { border-left: 0; }
     .viewctl .action { border: 0; }
     .layico { gap: 1px; font-size: 11px; }
-    main { margin-bottom: calc(58px + env(safe-area-inset-bottom, 0px)); }
+    main { margin-bottom: calc(var(--bar-h) + env(safe-area-inset-bottom, 0px)); }
     /* the info box becomes a small line at the top */
     .readout { top: 8px; bottom: auto; left: 8px; max-width: calc(100% - 16px); font-size: 11px; padding: 4px 8px; line-height: 1.4; }
     .toast { top: auto; bottom: 12px; }
     /* selection toolbars dock in one scrollable row just above the tool bar */
     .selbar {
-      position: fixed; left: 8px !important; right: 8px; top: auto !important; bottom: calc(66px + env(safe-area-inset-bottom, 0px));
+      position: fixed; left: 8px !important; right: 8px; top: auto !important; bottom: calc(var(--bar-h) + 8px + env(safe-area-inset-bottom, 0px));
       flex-wrap: nowrap; overflow-x: auto; max-width: none; -webkit-overflow-scrolling: touch;
     }
     .selbar button, .selbar .count, .selbar .sep { flex: none; }
     .layerpanel { top: auto; bottom: 12px; left: 8px; right: 8px; width: auto; }
-    .shapepop { position: fixed; top: auto; bottom: calc(62px + env(safe-area-inset-bottom, 0px)); left: 8px; right: 8px; }
+    .shapepop { position: fixed; top: auto; bottom: calc(var(--bar-h) + 4px + env(safe-area-inset-bottom, 0px)); left: 8px; right: 8px; }
     /* number boxes (Set size, lengths, angles) dock at the top: the bottom is under the toolbars and the keyboard */
     .editpop { left: 8px !important; right: 8px; top: 8px !important; max-width: none; }
     .editpop input[type="number"] { flex: 1; width: auto; min-width: 0; }
@@ -333,7 +337,6 @@
     </div>
   </div>
     <div class="group">
-      <button class="action" id="merge" title="Combine closed shapes that overlap into one outline">Merge overlapping</button>
       <button class="action" id="polyAll" title="Turn every set of lines that encloses an area into a polygon">Polygon from lines</button>
     </div>
   </div>
@@ -355,10 +358,12 @@
       <button id="tErase" aria-pressed="false" title="Eraser: drag over shapes or dimensions to remove them" aria-label="Eraser"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 20h11"/><path d="M4.7 14.6l9.1-9.1a2 2 0 0 1 2.8 0l3.2 3.2a2 2 0 0 1 0 2.8L12.2 19.1a2 2 0 0 1-1.4.6H8.7a2 2 0 0 1-1.4-.6l-2.6-2.6a1.3 1.3 0 0 1 0-1.9z"/><path d="M9.3 10.2l5.6 5.6"/></svg></button>
       <button id="tTrim" aria-pressed="false" title="Tap or drag across the part of a line to remove, back to where it crosses another line" aria-label="Trim"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6.5" r="2.6"/><circle cx="6" cy="17.5" r="2.6"/><path d="M8.2 8L20 17M8.2 16L20 7"/></svg></button>
       <button id="tExtend" aria-pressed="false" title="Tap near the end of a line to stretch it to the next line or edge in its path" aria-label="Extend"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h13"/><path d="M13 8.8l3.2 3.2-3.2 3.2"/><path d="M20.5 4.5v15"/></svg></button>
+      <button id="tFillet" aria-pressed="false" title="Round a corner: tap a corner, then drag to size the curve or type its radius" aria-label="Round corner"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20v-6a10 10 0 0 1 10-10h6"/><path d="M4 4h3M4 4v3" stroke-dasharray="1.6 2"/></svg></button>
       <button id="tOffset" aria-pressed="false" title="Pick line segments one at a time, then copy them parallel at a set distance" aria-label="Offset"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M4 18h16" stroke-dasharray="2.6 2.4"/><path d="M12 9.5v5.5M9.8 12.8l2.2 2.2 2.2-2.2"/></svg></button>
       <button id="tAlign" aria-pressed="false" title="Tap an edge of the shape to move, then the line to line it up with" aria-label="Align"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 20h17"/><path d="M6 6.5h9"/><path d="M10.5 9.5v7"/><path d="M8.2 14.3l2.3 2.3 2.3-2.3"/></svg></button>
       <button id="tDim" aria-pressed="false" title="Draw across lines or tap two corners for a distance; tap two lines for an angle. Tap any dimension to change it." aria-label="Dim"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5v11M20 6.5v11"/><path d="M4 12h16"/><path d="M7.2 9.4L4.6 12l2.6 2.6M16.8 9.4l2.6 2.6-2.6 2.6"/></svg></button>
     </div>
+    <div class="seg"><button id="merge" title="Merge: combine closed shapes that overlap into one outline" aria-label="Merge overlapping shapes"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 8.5h5v-5h12v12h-5v5h-12z"/><path d="M8.5 8.5h7v7" stroke-dasharray="1.6 2"/></svg></button></div>
     <div class="seg"><button id="tLayers" aria-expanded="false" aria-controls="layerPanel" title="Layers: choose the layer you draw on, and show or hide layers" aria-label="Layers"><span class="layico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l8.5 4.5L12 13 3.5 8.5z"/><path d="M3.5 12.5L12 17l8.5-4.5"/><path d="M3.5 16.5L12 21l8.5-4.5"/></svg><span id="layerTag">1</span></span></button></div>
     <div class="seg">
       <button id="zOut" aria-label="Zoom out">−</button>
@@ -476,8 +481,8 @@
   const stage = document.getElementById('stage');
   const readout = document.getElementById('readout');
 
-  const opts = { step: 45, align: 'screen', tol: 5, sketch: true, dims: true, debug: false, penOnly: false, hand: false, trim: false, roundTo: 1, snapW: GRID, snapPoints: true, extend: false, offset: false, draw: false, dim: false, line: false, bg: true, alignTool: false, rect: false, circle: false, erase: false, idleOff: 8 };
-  const editTool = () => opts.trim || opts.extend || opts.offset || opts.dim || opts.alignTool || opts.rect || opts.circle || opts.erase;   // these modes don't sketch freehand
+  const opts = { step: 45, align: 'screen', tol: 5, sketch: true, dims: true, debug: false, penOnly: false, hand: false, trim: false, roundTo: 1, snapW: GRID, snapPoints: true, extend: false, offset: false, draw: false, dim: false, line: false, bg: true, alignTool: false, rect: false, circle: false, erase: false, fillet: false, idleOff: 8 };
+  const editTool = () => opts.trim || opts.extend || opts.offset || opts.dim || opts.alignTool || opts.rect || opts.circle || opts.erase || opts.fillet;   // these modes don't sketch freehand
   const shapeTool = () => opts.rect || opts.circle || opts.erase;   // Rectangle, Circle and Eraser: press, drag, release
   let annots = [];      // dimension lines: { a: anchor, b: anchor }, anchors point at an edge of a shape by id
   let shapes = [];
@@ -944,8 +949,8 @@
       ctx.fillStyle = colors.analysis;
       for (const p of b) { ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI * 2); ctx.fill(); }
     }
-    const ci = circleOf(s);
-    drawResult({ verts: res.verts.map(toScreen), holes: (res.holes || []).map(h => h.map(toScreen)), closed: res.closed,
+    const ci = circleOf(s), toScr = p => (p.arc ? { ...toScreen(p), arc: p.arc } : toScreen(p));
+    drawResult({ verts: res.verts.map(toScr), holes: (res.holes || []).map(h => h.map(toScr)), closed: res.closed,
       circle: ci && { c: toScreen(ci.c), r: ci.r * view.s, rw: ci.r } }, false, !inert && (s === selected || group.includes(s)), inert ? null : s);
   }
   // other layers: drawn off-screen, then laid down faded, and never recorded as tappable
@@ -979,7 +984,7 @@
     if (!ghost) {
       ctx.lineWidth = 1.25;
       for (const c of corners(res)) {
-        if (c.deg === 180) continue;   // a point along a straight edge, not a corner
+        if (c.deg === 180 || v[c.i].arc) continue;   // a point along a straight edge or a rounded corner, not a corner
         ctx.strokeStyle = colors.vertex;
         const r = 13;
         if (Math.abs(c.exact - 90) < 0.05) {   // square marker only for a true right angle
@@ -997,7 +1002,7 @@
         }
       }
       ctx.fillStyle = colors.paper; ctx.strokeStyle = colors.shape; ctx.lineWidth = 1.5;
-      for (const p of v) { ctx.beginPath(); ctx.arc(p.x, p.y, 3.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+      for (const p of v) { if (p.arc) continue; ctx.beginPath(); ctx.arc(p.x, p.y, 3.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
     }
     // edge lengths, always shown on the live preview so you can see the size you're drawing
     if (opts.dims || ghost) {
@@ -1005,12 +1010,25 @@
       let area = 0; for (let i = 0; i < n; i++) area += cross(v[i], v[(i + 1) % n]);
       for (let i = 0; i < edges; i++) {
         const a = v[i], b = v[(i + 1) % n], L = dist(a, b);
+        if (a.arc && b.arc && a.arc.id === b.arc.id) continue;   // inside a rounded corner: labelled once, below
         if (L < 28) continue;
         const u = norm(sub(b, a)); let nrm = { x: u.y, y: -u.x };
         if (res.closed && area < 0) nrm = mul(nrm, -1);
         const m = add(mul(add(a, b), 0.5), mul(nrm, 14));
         const lw = label(fmtLen(L / view.s), m.x, m.y, ghost ? colors.shape : colors.muted);
         if (!ghost && shape) dimHits.push({ x: m.x, y: m.y, w: lw, shape, ri, ei: i });
+      }
+      // one R label per rounded corner, outside the curve; tap it to change the radius
+      const seen = new Set();
+      for (let i = 0; i < n; i++) {
+        const q = v[i]; if (!q.arc || seen.has(q.arc.id)) continue;
+        seen.add(q.arc.id);
+        const idx = []; for (let j = 0; j < n; j++) if (v[j].arc && v[j].arc.id === q.arc.id) idx.push(j);
+        const mid = v[idx[Math.floor(idx.length / 2)]], ends = mul(add(v[idx[0]], v[idx[idx.length - 1]]), 0.5);
+        const dir = dist(mid, ends) > 0.5 ? norm(sub(mid, ends)) : { x: 0, y: -1 };
+        const lp = add(mid, mul(dir, 16));
+        const lw = label('R ' + fmtLen(q.arc.r), lp.x, lp.y, ghost ? colors.shape : colors.muted);
+        if (!ghost && shape) dimHits.push({ x: lp.x, y: lp.y, w: lw, shape, ri, vi: idx[0], fillet: true });
       }
     }
   }
@@ -1097,6 +1115,7 @@
     }
     drawLive();
     drawToolPreview();
+    drawFilletPreview();
     if (mode === 'move' && snapHit) snapMarker(toScreen(snapHit));
     if (mode === 'vdrag' && snapHit) snapCircle(toScreen(snapHit));
     if (vertSel) {   // the selected corner
@@ -2377,6 +2396,129 @@
     };
   }
 
+  // ---------- Round corner (fillet) ----------
+  // A rounded corner is a run of points on the arc (5 degrees apart), each tagged { arc: { id, r } }, so it stays an
+  // ordinary polyline for trimming, snapping and the exports; the tags let it be drawn with one R label, re-sized, and
+  // kept through the exchange format (shape.arcs).
+  const FILLET_STEP = Math.PI / 36;
+  let filletState = null, fdrag = null, lastFillet = null, arcSeq = 0;
+  const newArcId = () => 'a' + Date.now().toString(36) + (++arcSeq);
+  function cornerGeom(ring, closed, vi) {
+    const n = ring.length;
+    if (!closed && (vi === 0 || vi === n - 1)) return null;
+    const V = ring[vi], P = ring[mod(vi - 1, n)], Q = ring[(vi + 1) % n];
+    const lp = dist(V, P), lq = dist(V, Q);
+    if (lp < 1e-9 || lq < 1e-9) return null;
+    const u1 = norm(sub(P, V)), u2 = norm(sub(Q, V));
+    const th = Math.acos(Math.max(-1, Math.min(1, dot(u1, u2))));
+    if (th < Math.PI / 180 || th > Math.PI * 179 / 180) return null;   // straight: nothing to round
+    const tanHalf = Math.tan(th / 2);
+    return { V: { x: V.x, y: V.y }, u1, u2, th, tanHalf, maxR: Math.min(lp, lq) * 0.999 * tanHalf };
+  }
+  function filletPoints(g, r, id) {
+    const t = r / g.tanHalf, T1 = add(g.V, mul(g.u1, t)), T2 = add(g.V, mul(g.u2, t));
+    const C = add(g.V, mul(norm(add(g.u1, g.u2)), r / Math.sin(g.th / 2)));
+    const a1 = Math.atan2(T1.y - C.y, T1.x - C.x);
+    let d = Math.atan2(T2.y - C.y, T2.x - C.x) - a1;
+    if (d > Math.PI) d -= 2 * Math.PI; else if (d < -Math.PI) d += 2 * Math.PI;
+    const n = Math.max(2, Math.ceil(Math.abs(d) / FILLET_STEP));
+    return Array.from({ length: n + 1 }, (_, k) => {
+      const a = a1 + d * k / n;
+      return { x: C.x + r * Math.cos(a), y: C.y + r * Math.sin(a), arc: { id, r } };
+    });
+  }
+  // the ring with the rounded corner at k taken out again: its two straight edges meet at a sharp corner
+  function unfillet(ring, closed, k) {
+    const id = ring[k].arc.id, n = ring.length;
+    let st = k; while (ring[mod(st - 1, n)].arc && ring[mod(st - 1, n)].arc.id === id && mod(st - 1, n) !== k) st = mod(st - 1, n);
+    let m = 0; while (m < n && ring[(st + m) % n].arc && ring[(st + m) % n].arc.id === id) m++;
+    if (!closed && (st === 0 || st + m >= n)) return null;
+    const P = ring[mod(st - 1, n)], T1 = ring[st], T2 = ring[(st + m - 1) % n], Q = ring[(st + m) % n];
+    const V = intersect({ c: T1, u: norm(sub(T1, P)) }, { c: T2, u: norm(sub(T2, Q)) });
+    if (!V) return null;
+    const plain = { x: V.x, y: V.y };
+    if (closed) { const rot = ring.slice(st).concat(ring.slice(0, st)); return { ring: [plain, ...rot.slice(m)], vi: 0, r: ring[k].arc.r, id }; }
+    return { ring: [...ring.slice(0, st), plain, ...ring.slice(st + m)], vi: st, r: ring[k].arc.r, id };
+  }
+  function startFillet(sh, ri, idx) {
+    const rings = [sh.result.verts, ...(sh.result.holes || [])], ring = rings[ri], closed = sh.result.closed;
+    let base = ring, vi = idx, id = newArcId(), r = null;
+    if (ring[idx].arc) { const u = unfillet(ring, closed, idx); if (!u) return false; base = u.ring; vi = u.vi; id = u.id; r = u.r; }
+    const g = cornerGeom(base, closed, vi); if (!g) return false;
+    if (r == null) r = Math.min(lastFillet || GRID, g.maxR * 0.5);
+    filletState = { shape: sh, ri, closed, base, vi, g, id, r: Math.min(r, g.maxR) };
+    selected = sh; segSel = null; vertSel = null;
+    const sc = toScreen(g.V);
+    openEditor(sc.x, sc.y, [{ label: 'Radius', value: +toUnitsNum(filletState.r).toFixed(3) }], ([v]) => {
+      if (!filletState) return;
+      filletState.r = Math.min(toWorldLen(v), filletState.g.maxR);
+      if (toWorldLen(v) > filletState.g.maxR) toast('Radius cut to ' + fmtLen(filletState.g.maxR) + ': the edges are too short for more');
+      commitFillet();
+    }, ([v]) => { if (filletState && v > 0) { filletState.r = Math.min(toWorldLen(v), filletState.g.maxR); requestDraw(); } });
+    pop.querySelector('#editCancel').onclick = () => { filletState = null; closeEditor(); requestDraw(); };
+    updateReadout(); requestDraw();
+    return true;
+  }
+  function filletTap(sp) {
+    const w = toWorld(sp);
+    let best = null, bd = 24;
+    for (const sh of workShapes()) {
+      if (!sh.result || circleOf(sh)) continue;
+      [sh.result.verts, ...(sh.result.holes || [])].forEach((ring, ri) => ring.forEach((p, i) => {
+        const d = dist(toScreen(p), sp);
+        if (d < bd && (p.arc || cornerGeom(ring, sh.result.closed, i))) { bd = d; best = { sh, ri, i }; }
+      }));
+    }
+    if (!best) {   // tapping right on a rounded stretch, between its points, also picks it
+      for (const sh of workShapes()) {
+        if (!sh.result || circleOf(sh)) continue;
+        [sh.result.verts, ...(sh.result.holes || [])].forEach((ring, ri) => {
+          const E = sh.result.closed ? ring.length : ring.length - 1;
+          for (let i = 0; i < E; i++) {
+            const a = ring[i], b = ring[(i + 1) % ring.length];
+            if (a.arc && b.arc && a.arc.id === b.arc.id && segDist(w, a, b) * view.s < 14) best = { sh, ri, i };
+          }
+        });
+      }
+    }
+    if (filletState) { filletState = null; closeEditor(); }
+    if (!best || !startFillet(best.sh, best.ri, best.i)) { toast('Tap a corner of a shape to round it'); requestDraw(); }
+  }
+  function filletFromPointer(sp) {
+    const f = filletState; if (!f) return;
+    const d = sub(toWorld(sp), f.g.V), t = Math.max(0, dot(d, f.g.u1), dot(d, f.g.u2));
+    let r = Math.min(t * f.g.tanHalf, f.g.maxR);
+    const ru = Math.round(toUnitsNum(r) * 10) / 10;   // 0.1 unit steps while dragging
+    if (ru > 0 && toWorldLen(ru) <= f.g.maxR) r = toWorldLen(ru);
+    f.r = r;
+    const inp = pop.querySelector('input'); if (inp) inp.value = +toUnitsNum(r).toFixed(3);
+    requestDraw();
+  }
+  function commitFillet() {
+    const f = filletState; if (!f) return;
+    filletState = null; closeEditor();
+    if (!(f.r > 0)) { requestDraw(); return; }
+    const pts = filletPoints(f.g, f.r, f.id);
+    const ring = JSON.parse(JSON.stringify([...f.base.slice(0, f.vi), ...pts, ...f.base.slice(f.vi + 1)]));
+    selected = f.shape;
+    editSelected(s => { if (f.ri === 0) s.result.verts = ring; else s.result.holes[f.ri - 1] = ring; s.fixed = true; });
+    lastFillet = f.r;
+    toast('Rounded: R ' + fmtLen(f.r));
+  }
+  function drawFilletPreview() {
+    const f = filletState; if (!f) return;
+    const pts = filletPoints(f.g, f.r, f.id).map(toScreen), V = toScreen(f.g.V);
+    ctx.save();
+    ctx.strokeStyle = colors.vertex; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    strokePath(pts); ctx.stroke();
+    ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); ctx.lineTo(V.x, V.y); ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y); ctx.stroke();
+    ctx.setLineDash([]);
+    const m = pts[Math.floor(pts.length / 2)], dir = norm(sub(m, V));
+    label('R ' + fmtLen(f.r), m.x - dir.x * 18, m.y - dir.y * 18, colors.vertex);
+    ctx.restore();
+  }
+
   // ---------- Rectangle, Circle and Eraser ----------
   // A circle is kept as a 72-sided closed shape (so trim, offset, snapping and the exports all work on it) with a
   // circle flag; it is drawn and labelled as a circle for as long as its corners still sit on one.
@@ -2529,6 +2671,7 @@
 
   function editEdge(hit) {
     if (hit.circle) { editRadius(hit.shape, hit.x, hit.y); return; }
+    if (hit.fillet) { startFillet(hit.shape, hit.ri, hit.vi); return; }
     selected = hit.shape;
     const r = [hit.shape.result.verts, ...(hit.shape.result.holes || [])][hit.ri];
     const a = r[hit.ei], b = r[(hit.ei + 1) % r.length];
@@ -2623,15 +2766,17 @@
       return;
     }
     const tally = {};
-    for (const c of corners(r)) if (c.deg !== 180) { const k = fmtDeg(c.exact); tally[k] = (tally[k] || 0) + 1; }
+    for (const c of corners(r)) if (c.deg !== 180 && !r.verts[c.i].arc) { const k = fmtDeg(c.exact); tally[k] = (tally[k] || 0) + 1; }
+    const curves = new Set(r.verts.filter(q => q.arc).map(q => q.arc.id)).size;
     const cornerText = Object.keys(tally).sort((a, b) => parseFloat(a) - parseFloat(b)).map(d => `${d}×${tally[d]}`).join('  ') || 'none';
-    const edges = r.closed ? r.verts.length : r.verts.length - 1;
+    let edges = r.closed ? r.verts.length : r.verts.length - 1;
+    for (let i = 0; i < r.verts.length - (r.closed ? 0 : 1); i++) { const a = r.verts[i], b = r.verts[(i + 1) % r.verts.length]; if (a.arc && b.arc && a.arc.id === b.arc.id) edges--; }
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const p of r.verts) { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); }
     readout.innerHTML =
       (ex ? 'Example shapes are loaded. Press <strong>Clear</strong> to start with an empty sheet.<br>' : '') +
       `<strong>${last === selected ? 'Selected · ' : ''}${r.closed ? 'Closed' : 'Open'}</strong> · ${edges} edge${edges === 1 ? '' : 's'} · ${fmtLen(maxX - minX)} × ${fmtLen(maxY - minY)}<br>` +
-      `corners ${cornerText} · ${real.length} shape${real.length === 1 ? '' : 's'}`;
+      `corners ${cornerText}${curves ? ` · ${curves} rounded` : ''} · ${real.length} shape${real.length === 1 ? '' : 's'}`;
   }
 
   // ---------- zoom & pan ----------
@@ -2703,7 +2848,7 @@
     stopIdle();
     if (!layerPanel.hidden) { layerPanel.hidden = true; layerBtn.setAttribute('aria-expanded', 'false'); }
     if (!shapePop.hidden) { shapePop.hidden = true; shapesBtn.setAttribute('aria-expanded', 'false'); }
-    if (!pop.hidden && !(cornerEdit && cornerEdit.closed)) closeEditor();
+    if (!pop.hidden && !(cornerEdit && cornerEdit.closed) && !filletState) closeEditor();
     if (settingsEl.classList.contains('open')) setSettings(false);
     const sp = localPoint(e);
     if (e.pointerType === 'touch') {
@@ -2713,6 +2858,7 @@
       if (touches.size >= 2) {
         if (mode === 'draw') { live = null; liveRes = null; drawId = null; }
         if (mode === 'shapetool') { tdrag = null; drawId = null; }   // a second finger: pinch instead
+        if (mode === 'filletdrag') { fdrag = null; drawId = null; }
         startPinch(); requestDraw(); return;
       }
       if (mode) return;
@@ -2744,6 +2890,13 @@
       pick.startA = pick.prevA = Math.atan2(sp.y - c.y, sp.x - c.x);
       pick.acc = 0; pick.angle = 0; pick.cur = sp;
       requestDraw(); return;
+    }
+    if (filletState) {
+      // a curve is being sized: dragging sets its radius, a tap picks another corner
+      e.preventDefault();
+      mode = 'filletdrag'; drawId = e.pointerId; drawType = e.pointerType;
+      fdrag = { s0: sp, moved: false };
+      return;
     }
     if (shapeTool() && !pick && !divState && !refPick && !(cornerEdit && cornerEdit.closed)) {
       e.preventDefault();
@@ -2854,6 +3007,10 @@
         if (Math.abs(aligned - raw) < 4) { pick.angle = +aligned.toFixed(6); pick.onGrid = true; }
       }
       requestDraw();
+    } else if (mode === 'filletdrag' && e.pointerId === drawId) {
+      const sp = localPoint(e);
+      if (fdrag && dist(sp, fdrag.s0) > 6) fdrag.moved = true;
+      if (fdrag && fdrag.moved) filletFromPointer(sp);
     } else if (mode === 'shapetool' && e.pointerId === drawId) {
       const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
       for (const ev of (evs.length ? evs : [e])) moveShapeTool(localPoint(ev));
@@ -2888,6 +3045,12 @@
       return;
     }
     if (mode === 'move' && e.pointerId === drawId) { mode = null; drawId = null; snapHit = null; setCursor(); updateReadout(); requestDraw(); return; }
+    if (mode === 'filletdrag' && e.pointerId === drawId) {
+      mode = null; drawId = null;
+      const f = fdrag; fdrag = null;
+      if (!cancelled && f) { if (f.moved) commitFillet(); else filletTap(localPoint(e)); }
+      requestDraw(); return;
+    }
     if (mode === 'shapetool' && e.pointerId === drawId) {
       mode = null; drawId = null;
       const t = tdrag; tdrag = null;
@@ -2920,6 +3083,7 @@
       if (len <= 6) offsetPick(screenPts[0]); else toast('Tap each line segment to pick it');
       return;
     }
+    if (opts.fillet) { if (len <= 6) filletTap(screenPts[0]); else toast('Tap a corner to round it'); return; }
     if (opts.dim) { dimTool(screenPts, len); return; }
     if (!opts.draw) len = 0;
     if (len <= 6) {
@@ -3664,13 +3828,14 @@
   }
   toggle('tSketch', 'sketch'); toggle('tBg', 'bg'); toggle('tDims', 'dims'); toggle('tDebug', 'debug'); toggle('tPen', 'penOnly'); toggle('tSnapPts', 'snapPoints');
   // Pan, Trim and Extend are modes; only one is on at a time
-  const modeBtn = { draw: 'tDraw', line: 'tLine', rect: 'tRect', circle: 'tCircle', erase: 'tErase', trim: 'tTrim', extend: 'tExtend', offset: 'tOffset', alignTool: 'tAlign', dim: 'tDim' };
+  const modeBtn = { draw: 'tDraw', line: 'tLine', rect: 'tRect', circle: 'tCircle', erase: 'tErase', fillet: 'tFillet', trim: 'tTrim', extend: 'tExtend', offset: 'tOffset', alignTool: 'tAlign', dim: 'tDim' };
   const modeHint = {
     draw: 'Draw is on. Tap Draw again (or press D) to stop.',
     line: 'Line: tap points one after another. Tap the first point to close.',
     rect: 'Rectangle: drag from one corner to the opposite corner',
     circle: 'Circle: tap the centre to type a radius, or drag out from the centre',
     erase: 'Eraser: drag over shapes or dimensions to remove them',
+    fillet: 'Round: tap a corner, then drag to size the curve or type the radius',
     trim: 'Trim: tap or drag across the part of a line to remove',
     extend: 'Extend: tap a line end, or drag from one line to another to make them meet',
     offset: 'Offset: tap each segment, then set a distance. Negative goes inward.',
@@ -3680,6 +3845,7 @@
   function setMode(key, on) { opts[key] = on; document.getElementById(modeBtn[key]).setAttribute('aria-pressed', String(on)); }
   for (const key of Object.keys(modeBtn)) document.getElementById(modeBtn[key]).addEventListener('click', () => {
     const on = !opts[key];
+    if (filletState) { filletState = null; closeEditor(); }
     offPicks = []; dimPending = null; extPending = null; linePts = []; alignPick = null; vertSel = null;
     for (const k of Object.keys(modeBtn)) setMode(k, false);
     setMode(key, on);
@@ -3800,6 +3966,18 @@
 
   // ---------- drawing exchange format (see shared/CONTRACT.md) ----------
   // CAD convention: real units from the grid setting, y axis pointing up
+  // rounded corners travel as runs of vertex indices: { ring (0 = outline, 1… = holes), start, count, radius }
+  function arcsOut(s, k) {
+    const out = [];
+    [s.result.verts, ...(s.result.holes || [])].forEach((ring, ri) => {
+      for (let i = 0; i < ring.length; i++) {
+        const q = ring[i]; if (!q.arc || (i > 0 && ring[i - 1].arc && ring[i - 1].arc.id === q.arc.id)) continue;
+        let c = 1; while (i + c < ring.length && ring[i + c].arc && ring[i + c].arc.id === q.arc.id) c++;
+        out.push({ ring: ri, start: i, count: c, radius: +(q.arc.r * k).toFixed(4) });
+      }
+    });
+    return out.length ? { arcs: out } : {};
+  }
   function exportDrawing() {
     const k = sq.val / GRID;
     const toUnits = ring => ring.map(p => [+(p.x * k).toFixed(4), +(-p.y * k).toFixed(4)]);
@@ -3811,6 +3989,7 @@
         closed: s.result.closed,
         vertices: toUnits(s.result.verts),
         ...(circleOf(s) ? { circle: true } : {}),
+        ...arcsOut(s, k),
         ...(s.result.holes && s.result.holes.length ? { holes: s.result.holes.map(toUnits) } : {})
       }))
     };
@@ -3828,6 +4007,15 @@
       raw: [], px: 1, fixed: true, layer: sh.layer >= 1 && sh.layer <= LAYER_COUNT ? sh.layer : 1, ...(sh.circle ? { circle: true } : {}),
       result: { verts: toWorldRing(sh.vertices), closed: !!sh.closed, holes: (sh.holes || []).map(toWorldRing) }
     }));
+    data.shapes.filter(sh => Array.isArray(sh.vertices) && sh.vertices.length >= 2).forEach((sh, n) => {
+      if (!Array.isArray(sh.arcs)) return;
+      const rings = [shapes[n].result.verts, ...(shapes[n].result.holes || [])];
+      for (const a of sh.arcs) {
+        const ring = rings[a.ring | 0]; if (!ring || !(a.radius > 0)) continue;
+        const id = newArcId();
+        for (let j = 0; j < a.count; j++) { const q = ring[(a.start + j) % ring.length]; if (q) q.arc = { id, r: a.radius / k }; }
+      }
+    });
     annots = []; selected = null; group = []; lasso = null;
     updateReadout(); requestDraw();
     return true;
