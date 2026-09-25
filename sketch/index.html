@@ -401,6 +401,7 @@
     <button id="sSize" title="Type an exact overall width and height">Set size</button>
     <button id="sSnap" title="Move so its top-left corner sits on a grid intersection">Snap to grid</button>
     <span class="sep"></span>
+    <button id="sLock" title="Lock: hold this shape in place. Dimension changes then move the other shape, and it can't be dragged or resized until unlocked.">Lock</button>
     <button id="sDel" class="danger" title="Delete the shape (Delete key)">Delete</button>
   </div>
   <div class="selbar" id="groupbar" hidden role="toolbar" aria-label="Selected shapes">
@@ -1140,6 +1141,7 @@
     drawToolPreview();
     drawFilletPreview();
     drawSlidePreview();
+    for (const sh of workShapes()) drawLockBadge(sh);
     if (mode === 'move' && snapHit) snapMarker(toScreen(snapHit));
     if (mode === 'vdrag' && snapHit) snapCircle(toScreen(snapHit));
     if (vertSel) {   // the selected corner
@@ -1762,6 +1764,7 @@
   function editCorner(h) {
     const sh = h.shape;
     if (!shapes.includes(sh) || !sh.result) return;
+    if (sh.locked) { toast('Locked. Tap Unlock on its toolbar to move or change it.'); return; }
     const closed = sh.result.closed;
     const rings = [sh.result.verts, ...(sh.result.holes || [])], r = rings[h.ri], m = r.length, i = h.vi;
     const V = r[i], iP = (i - 1 + m) % m, iN = (i + 1) % m;
@@ -1928,6 +1931,8 @@
     const sa = shapes.find(x => x.id === d.a.sid), sb = shapes.find(x => x.id === d.b.sid);
     if (!sa || !sb) return;
     if (sa === sb) { toast('Both lines are on one shape. Use Split into segments first to change this angle.'); return; }
+    if (sa.locked && sb.locked) { toast('Both shapes are locked. Unlock the one that should turn.'); return; }
+    const mover = sb.locked ? sa : sb, turn = sb.locked ? -1 : 1;   // turning the other shape the other way gives the same angle
     const sgn = g.phi < 0 ? -1 : 1, Xs = toScreen(g.X);
     const psiFor = v => (v > 0 && v < 180 ? sgn * v * Math.PI / 180 - g.phi : 0);
     openEditor(Xs.x, Xs.y, [{ label: 'Angle', value: +(Math.abs(g.phi) * 180 / Math.PI).toFixed(2), unit: '°' }], ([v]) => {
@@ -1935,14 +1940,14 @@
       const psi = psiFor(v);
       if (Math.abs(psi) < 1e-9) return;
       group = []; lasso = null; selected = null;
-      const rot = rotAbout(g.X, psi);
-      editTargets([sb], sh => { mapShape(sh, rot); sh.fixed = true; });
+      const rot = rotAbout(g.X, psi * turn);
+      editTargets([mover], sh => { mapShape(sh, rot); sh.fixed = true; });
       updateReadout(); requestDraw();
     }, ([v]) => {
       const psi = psiFor(v);
       let ghost = null;
-      if (Math.abs(psi) > 1e-9) { const c = JSON.parse(JSON.stringify(sb)); mapShape(c, rotAbout(g.X, psi)); ghost = c.result; }
-      editPreview = { shape: sb, whole: true, ghost };
+      if (Math.abs(psi) > 1e-9) { const c = JSON.parse(JSON.stringify(mover)); mapShape(c, rotAbout(g.X, psi * turn)); ghost = c.result; }
+      editPreview = { shape: mover, whole: true, ghost };
       requestDraw();
     });
   }
@@ -1956,6 +1961,9 @@
     const u = norm(sub(p2, p1));
     const sa = shapes.find(x => x.id === d.a.sid), sb = shapes.find(x => x.id === d.b.sid);
     if (!sa || !sb) return;
+    // the second shape moves, unless it is locked: then the first moves the other way
+    if (sa === sb ? sa.locked : sa.locked && sb.locked) { toast(sa === sb ? 'This shape is locked. Unlock it to change its size.' : 'Both shapes are locked. Unlock the one that should move.'); return; }
+    const mover = sb.locked ? sa : sb, dir = sb.locked ? -1 : 1;
     const m = toScreen(mul(add(p1, p2), 0.5));
     const deltaFor = v => (v > 0 ? toWorldLen(v) - L : 0);
     openEditor(m.x, m.y, [{ label: 'Distance', value: toUnitsNum(L) }], ([v]) => {
@@ -1971,13 +1979,13 @@
         });
       } else {
         selected = null;
-        editTargets([sb], sh => translateShape(sh, mul(u, delta)));
+        editTargets([mover], sh => translateShape(sh, mul(u, delta * dir)));
       }
       updateReadout(); requestDraw();
     }, ([v]) => {
       // show what will move before it moves
       if (sa === sb) stretchPreview(sa, u, dot(p1, u), dot(p2, u), deltaFor(v));
-      else movePreview(sb, mul(u, deltaFor(v)));
+      else movePreview(mover, mul(u, deltaFor(v) * dir));
     });
   }
 
@@ -2420,12 +2428,42 @@
     };
   }
 
+  // ---------- Lock ----------
+  // A locked shape holds still: dimension and angle edits move the other shape, and dragging, sliding, corner and
+  // length edits and the move/turn/size buttons leave it alone until it is unlocked. Delete still works.
+  const LOCK_BLOCKS = new Set(['sMove', 'sRot', 'sStraight', 'sFlipH', 'sFlipV', 'sSize', 'sSnap', 'sExplode', 'sPoly',
+    'gMove', 'gRot', 'gStraight', 'gMerge', 'gPoly', 'vDel']);
+  document.addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest('button'); if (!b || !LOCK_BLOCKS.has(b.id)) return;
+    const hit = b.id[0] === 'g' ? group.some(g => g.locked) : selected && selected.locked;
+    if (hit) { e.stopImmediatePropagation(); e.preventDefault(); toast('Locked. Tap Unlock on its toolbar to move or change it.'); }
+  }, true);
+  const lockBtn = document.getElementById('sLock');
+  lockBtn.addEventListener('click', () => {
+    if (!selected) return;
+    pushHistory();
+    const i = shapes.indexOf(selected), c = JSON.parse(JSON.stringify(selected));
+    c.locked = !selected.locked; if (!c.locked) delete c.locked;
+    shapes[i] = c; selected = c;
+    toast(c.locked ? 'Locked: dimension changes now move the other shape' : 'Unlocked');
+    updateReadout(); requestDraw();
+  });
+  function drawLockBadge(sh) {
+    if (!sh.locked || !sh.result) return;
+    const b = bboxOf(sh.result.verts), p = toScreen({ x: b.maxX, y: b.minY }), x = p.x + 8, y = p.y - 8;
+    ctx.save(); ctx.fillStyle = colors.panel; ctx.strokeStyle = colors.ink; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(x, y, 10, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x, y - 2, 3, Math.PI, 0); ctx.stroke();
+    ctx.fillStyle = colors.ink; ctx.fillRect(x - 4.5, y - 1.5, 9, 6.5);
+    ctx.restore();
+  }
+
   // ---------- sliding a line or an edge sideways ----------
   // A selected single line, or the picked edge of a selected shape, can be dragged across itself only: it keeps its
   // direction and length along the line. A shape's neighbouring edges keep their angles and stretch to meet it.
   let eslide = null, slideHinted = false;
   function slideTarget(sp) {
-    const sh = selected; if (!sh || !sh.result || circleOf(sh)) return null;
+    const sh = selected; if (!sh || !sh.result || circleOf(sh) || sh.locked) return null;
     let ri = 0, ei = 0;
     if (segSel && segSel.sid === sh.id) { ri = segSel.ri; ei = segSel.ei; }
     else if (!sh.result.closed && sh.result.verts.length === 2 && !(sh.result.holes && sh.result.holes.length)) { ri = 0; ei = 0; }
@@ -2507,6 +2545,7 @@
     return { ring: [...ring.slice(0, st), plain, ...ring.slice(st + m)], vi: st, r: ring[k].arc.r, id };
   }
   function startFillet(sh, ri, idx) {
+    if (sh.locked) { toast('Locked. Tap Unlock on its toolbar to move or change it.'); return true; }
     const rings = [sh.result.verts, ...(sh.result.holes || [])], ring = rings[ri], closed = sh.result.closed;
     let base = ring, vi = idx, id = newArcId(), r = null;
     if (ring[idx].arc) { const u = unfillet(ring, closed, idx); if (!u) return false; base = u.ring; vi = u.vi; id = u.id; r = u.r; }
@@ -2822,6 +2861,7 @@
   }
 
   function editEdge(hit) {
+    if (hit.shape && hit.shape.locked) { selected = hit.shape; toast('Locked. Tap Unlock on its toolbar to move or change it.'); updateReadout(); requestDraw(); return; }
     if (hit.circle) { editRadius(hit.shape, hit.x, hit.y); return; }
     if (hit.fillet) { startFillet(hit.shape, hit.ri, hit.vi); return; }
     selected = hit.shape;
@@ -2896,7 +2936,9 @@
     });
   }
 
+  function syncLockBtn() { const b = document.getElementById('sLock'); if (b) b.textContent = selected && selected.locked ? 'Unlock' : 'Lock'; }
   function updateReadout() {
+    syncLockBtn();
     if (!layerPanel.hidden) renderLayers();
     if (typeof notifyChanged === 'function') setTimeout(notifyChanged, 0);
     const real = shapes.filter(s => s.result);
@@ -2912,7 +2954,7 @@
     const r = last.result, ci = circleOf(last);
     if (isPoint(last)) {
       readout.innerHTML = (ex ? 'Example shapes are loaded. Press <strong>Clear</strong> to start with an empty sheet.<br>' : '') +
-        `<strong>${last === selected ? 'Selected · ' : ''}Point</strong><br>${real.length} shape${real.length === 1 ? '' : 's'}`;
+        `<strong>${last === selected ? 'Selected · ' : ''}Point${last.locked ? ' · locked' : ''}</strong><br>${real.length} shape${real.length === 1 ? '' : 's'}`;
       return;
     }
     if (ci) {
@@ -2932,7 +2974,7 @@
     for (const p of r.verts) { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); }
     readout.innerHTML =
       (ex ? 'Example shapes are loaded. Press <strong>Clear</strong> to start with an empty sheet.<br>' : '') +
-      `<strong>${last === selected ? 'Selected · ' : ''}${r.closed ? 'Closed' : 'Open'}</strong> · ${edges} edge${edges === 1 ? '' : 's'} · ${fmtLen(maxX - minX)} × ${fmtLen(maxY - minY)}<br>` +
+      `<strong>${last === selected ? 'Selected · ' : ''}${r.closed ? 'Closed' : 'Open'}${last.locked ? ' · locked' : ''}</strong> · ${edges} edge${edges === 1 ? '' : 's'} · ${fmtLen(maxX - minX)} × ${fmtLen(maxY - minY)}<br>` +
       `corners ${cornerText}${curves ? ` · ${curves} rounded` : ''} · ${real.length} shape${real.length === 1 ? '' : 's'}`;
   }
 
@@ -3035,6 +3077,7 @@
       if (v && dist(toScreen(v), sp) < 24) {
         e.preventDefault(); cv.setPointerCapture(e.pointerId);
         const sh = shapes.find(x => x.id === vertSel.sid);
+        if (sh && sh.locked) { toast('Locked. Tap Unlock on its toolbar to move or change it.'); return; }
         mode = 'vdrag'; drawId = e.pointerId;
         vdrag = { moved: false, targets: opts.snapPoints ? snapTargets([sh]) : [], segs: opts.snapPoints ? bgSegments() : [] };
         return;
@@ -3090,6 +3133,7 @@
     selectGesture = false;
     const s = shapeAt(toWorld(sp), 1 / view.s);
     if (!s) return;
+    if (s.locked || (group.includes(s) && group.some(g => g.locked))) { toast('Locked. Tap Unlock on its toolbar to move or change it.'); return; }
     mode = 'move'; live = null; liveRes = null;
     if (group.includes(s)) { selected = null; movingGroup = true; }
     else { selected = s; group = []; movingGroup = false; }
@@ -4216,6 +4260,7 @@
         closed: s.result.closed,
         vertices: toUnits(s.result.verts),
         ...(circleOf(s) ? { circle: true } : {}),
+        ...(s.locked ? { locked: true } : {}),
         ...arcsOut(s, k),
         ...(s.result.holes && s.result.holes.length ? { holes: s.result.holes.map(toUnits) } : {})
       }))
@@ -4231,7 +4276,7 @@
     const toWorldRing = ring => ring.map(([x, y]) => ({ x: x / k, y: -y / k }));
     pushHistory();
     shapes = data.shapes.filter(sh => Array.isArray(sh.vertices) && sh.vertices.length >= 1).map(sh => ({
-      raw: [], px: 1, fixed: true, layer: sh.layer >= 1 && sh.layer <= LAYER_COUNT ? sh.layer : 1, ...(sh.circle ? { circle: true } : {}),
+      raw: [], px: 1, fixed: true, layer: sh.layer >= 1 && sh.layer <= LAYER_COUNT ? sh.layer : 1, ...(sh.circle ? { circle: true } : {}), ...(sh.locked ? { locked: true } : {}),
       result: { verts: toWorldRing(sh.vertices), closed: !!sh.closed, holes: (sh.holes || []).map(toWorldRing) }
     }));
     data.shapes.filter(sh => Array.isArray(sh.vertices) && sh.vertices.length >= 1).forEach((sh, n) => {
