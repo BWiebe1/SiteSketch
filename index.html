@@ -15,6 +15,7 @@
   body > header { padding-top: calc(8px + env(safe-area-inset-top, 0px)); }
 </style>
 <title>Site Sketch</title>
+<meta name="app-version" content="1.0.0">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;500;600&display=swap">
 <style>
@@ -179,7 +180,7 @@
       <path d="M41.6 24.4V42.8M32.4 33.6H50.8" stroke="#f26a21" stroke-width="1.8"/>
       </g>
     </svg>
-    <div class="wm"><h1>Site Sketch</h1><span class="by">by Wiebe&#8217;s Spatial Solutions</span></div>
+    <div class="wm"><h1>Site Sketch</h1><span class="by">by Wiebe&#8217;s Spatial Solutions · <span class="ver"></span></span></div>
   </div>
   <div class="seg" role="tablist" aria-label="View">
     <button id="tabDraw" role="tab" aria-pressed="true">Draw</button>
@@ -192,7 +193,7 @@
     <button class="action" id="gridRef" title="Line the drawing grid up with a survey line">Grid line</button>
     <button class="action" id="openSurvey">Survey…</button>
     <button class="action" id="openExport">Export…</button>
-    <div class="about"><b>Site Sketch</b><br>by Wiebe&#8217;s Spatial Solutions</div>
+    <div class="about"><b>Site Sketch</b> <span class="ver"></span><br>by Wiebe&#8217;s Spatial Solutions</div>
   </div>
 </header>
 
@@ -878,6 +879,10 @@
       if (!geoView.hidden) refresh();
     }
   });
+
+  // version: one number for the whole app (meta app-version); bump it with every published change
+  const APP_VERSION = document.querySelector('meta[name="app-version"]').content;
+  for (const el of document.querySelectorAll('.ver')) el.textContent = 'v' + APP_VERSION;
 
   // ---------- views ----------
   const drawView = $('drawView'), geoView = $('geoView');
