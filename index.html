@@ -1,0 +1,1175 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Site Sketch">
+<meta name="theme-color" content="#f8faf9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#172023" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<style>
+  /* full screen on the phone: keep clear of the notch, status bar and home indicator */
+  body { box-sizing: border-box; padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
+</style>
+<title>Site Sketch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;500;600&display=swap">
+<style>
+  /* also served as a plain file (embedded), so it carries its own copy of this reset */
+  [hidden] { display: none !important; }
+  :root {
+    --paper: #eef2f1; --panel: #f8faf9; --ink: #1b2a2f; --muted: #5f6f73; --line: #d3dcda;
+    --grid: #dfe6e4; --shape: #1d4f7a; --survey: #6b7f86; --pick: #d2551c; --ok: #2e7a58;
+    --btn-on: #1d4f7a; --btn-on-ink: #ffffff; --focus: #d2551c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --paper: #11181a; --panel: #172023; --ink: #dbe5e3; --muted: #8fa0a2; --line: #28353a;
+      --grid: #1a2427; --shape: #74b4e3; --survey: #8a9ca1; --pick: #ff8c52; --ok: #6fd1a4;
+      --btn-on: #74b4e3; --btn-on-ink: #0d1416; --focus: #ff8c52;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --paper: #11181a; --panel: #172023; --ink: #dbe5e3; --muted: #8fa0a2; --line: #28353a;
+    --grid: #1a2427; --shape: #74b4e3; --survey: #8a9ca1; --pick: #ff8c52; --ok: #6fd1a4;
+    --btn-on: #74b4e3; --btn-on-ink: #0d1416; --focus: #ff8c52;
+  }
+  html, body { height: 100%; overscroll-behavior: none; }
+  body {
+    background: var(--paper); color: var(--ink); margin: 0;
+    font-family: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+    display: grid; grid-template-rows: auto 1fr; overflow: hidden;
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+  }
+  input, select { -webkit-user-select: text; user-select: text; }
+  button, input, select, label { touch-action: manipulation; }
+  header {
+    position: relative; z-index: 10; background: var(--panel); border-bottom: 1px solid var(--line);
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding-block: 8px; padding-inline: 16px;
+  }
+  h1 { font-size: 17px; font-weight: 600; margin: 0; }
+  .spacer { flex: 1; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  button {
+    font: inherit; font-size: 14px; color: var(--ink); background: transparent; border: 0;
+    padding: 6px 11px; cursor: pointer; min-height: 34px;
+  }
+  button:disabled { opacity: 0.45; cursor: default; }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button[aria-pressed="true"] { background: var(--btn-on); color: var(--btn-on-ink); }
+  .action { border: 1px solid var(--line); border-radius: 6px; }
+  .primary { background: var(--btn-on); color: var(--btn-on-ink); border-radius: 6px; }
+  .action:hover:not(:disabled) { background: var(--line); }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  input[type="text"], select {
+    font: inherit; font-size: 14px; color: var(--ink); background: var(--paper);
+    border: 1px solid var(--line); border-radius: 6px; height: 34px; padding: 0 8px; min-width: 0;
+  }
+  @media (pointer: coarse) { input[type="text"], select { font-size: 16px; } }
+  main { position: relative; min-height: 0; }
+  .view { position: absolute; inset: 0; }
+  iframe { border: 0; width: 100%; height: 100%; display: block; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; display: block; cursor: crosshair; }
+  .label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
+  }
+  /* georeference side panel */
+  .panel {
+    position: absolute; top: 12px; left: 16px; width: min(340px, calc(100% - 32px)); max-height: calc(100% - 24px); overflow: auto;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px;
+    display: grid; gap: 12px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1); z-index: 4;
+  }
+  .panel h2 { font-size: 13px; margin: 0; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .panel p { margin: 0; font-size: 14px; line-height: 1.4; color: var(--muted); }
+  .panel .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .step { display: grid; gap: 6px; padding-top: 10px; border-top: 1px solid var(--line); }
+  .step.current h2 { color: var(--pick); }
+  .num {
+    display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%;
+    font-size: 12px; border: 1.5px solid currentColor;
+  }
+  .step.done .num { background: var(--ok); border-color: var(--ok); color: var(--panel); }
+  .status { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .badge { font-size: 12px; padding: 2px 8px; border-radius: 99px; background: var(--ok); color: var(--panel); }
+  .reopen {
+    position: absolute; top: 12px; left: 16px; z-index: 4; background: var(--panel);
+    border: 1px solid var(--ok); color: var(--ok); border-radius: 6px; font-weight: 500;
+  }
+  .viewctl { position: absolute; top: 12px; right: 16px; display: flex; gap: 6px; z-index: 4; }
+  .viewctl .seg, .viewctl .action { background: var(--panel); }
+  .sheet {
+    position: absolute; right: 16px; top: 60px; width: min(360px, calc(100% - 32px)); z-index: 6;
+    background: var(--panel); border: 1px solid var(--shape); border-radius: 8px; padding: 12px 14px;
+    display: grid; gap: 10px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  }
+  .sheet .field { display: grid; gap: 4px; }
+  .sheet .btns { display: flex; gap: 6px; justify-content: flex-end; }
+  .toast {
+    position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); background: var(--ink); color: var(--paper);
+    padding: 7px 12px; border-radius: 6px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 20; max-width: calc(100% - 32px);
+  }
+  .toast.show { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+  .hactions { display: contents; }
+  #more { display: none; min-width: 44px; font-size: 18px; line-height: 1; }
+  #hidePanel { min-height: 30px; padding: 2px 10px; font-size: 13px; }
+  /* ---------- phones: compact header with a ⋯ menu; the steps panel is a bottom sheet you can hide ---------- */
+  @media (max-width: 640px) {
+    header h1 { display: none; }
+    header { padding-inline: 10px; flex-wrap: nowrap; }
+    #tabGeo { font-size: 0; }
+    #tabGeo::after { content: 'Georef'; font-size: 14px; }
+    #more { display: inline-block; }
+    .hactions {
+      display: none; position: absolute; top: 100%; right: 8px; z-index: 12; min-width: 200px;
+      background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16); flex-direction: column; gap: 4px;
+    }
+    .hactions.open { display: flex; }
+    .hactions button { text-align: left; min-height: 44px; }
+    .panel { top: auto; bottom: 8px; left: 8px; width: auto; right: 8px; max-height: 44%; }
+    .sheet { top: 8px; left: 8px; right: 8px; width: auto; }
+    .reopen { top: 8px; left: 8px; }
+    .viewctl { top: 8px; right: 8px; }
+  }
+  @media (pointer: coarse) { header button, .panel button, .sheet button { min-height: 42px; } }
+</style>
+
+<header>
+  <h1>Site Sketch</h1>
+  <div class="seg" role="tablist" aria-label="View">
+    <button id="tabDraw" role="tab" aria-pressed="true">Draw</button>
+    <button id="tabGeo" role="tab" aria-pressed="false">Georeference</button>
+  </div>
+  <div class="spacer"></div>
+  <button class="action" id="more" aria-expanded="false" aria-controls="hactions" aria-label="More">⋯</button>
+  <div class="hactions" id="hactions">
+    <button class="action" id="undo" title="Undo the last georeference change">Undo</button>
+    <button class="action" id="gridRef" title="Line the drawing grid up with a survey line">Grid line</button>
+    <button class="action" id="openSurvey">Survey…</button>
+    <button class="action" id="openExport">Export…</button>
+  </div>
+</header>
+
+<main id="stage">
+  <section class="view" id="drawView">
+    <iframe id="sketchFrame" title="Sketch"></iframe>
+  </section>
+
+  <section class="view" id="geoView" hidden>
+    <canvas id="gcv"></canvas>
+    <div class="viewctl">
+      <div class="seg">
+        <button id="zOut" aria-label="Zoom out">−</button>
+        <button id="zIn" aria-label="Zoom in">+</button>
+      </div>
+      <button class="action" id="zFit">Fit</button>
+    </div>
+    <button class="reopen" id="reopen" hidden title="Open the georeference steps again">Georeferenced · Edit</button>
+    <div class="panel" id="panel">
+      <div class="row" style="justify-content: space-between">
+        <h2>Georeference</h2>
+        <button class="action" id="hidePanel" title="Hide the steps to see the map">Hide</button>
+        <span class="badge" id="geoBadge" hidden>Georeferenced</span>
+      </div>
+      <p id="surveyInfo">No survey loaded yet.</p>
+      <div class="row">
+        <button class="action" id="loadSurvey2">Load survey…</button>
+        <button class="action" id="useSample">Try the Agwest sample</button>
+      </div>
+      <div class="step" id="step0">
+        <h2><span class="num">#</span> Grid</h2>
+        <p id="s0text">Tap a survey line to turn the grid to it.</p>
+        <div class="row">
+          <button class="action" id="gridPickBtn">Set from a survey line</button>
+        </div>
+      </div>
+      <div class="step" id="step1">
+        <h2><span class="num">1</span> Align</h2>
+        <p id="s1text">Tap an edge of your drawing, then the surveyed line it runs along.</p>
+        <div class="row">
+          <button class="action" id="flip">Flip 180°</button>
+          <button class="action" id="redo1">Redo step</button>
+        </div>
+      </div>
+      <div class="step" id="step2">
+        <h2><span class="num">2</span> Position</h2>
+        <p id="s2text">Tap a corner of your drawing, then the surveyed point it sits on.</p>
+        <div class="row">
+          <button class="action" id="redo2">Redo step</button>
+        </div>
+      </div>
+      <div class="step" id="turnStep">
+        <h2>Turn</h2>
+        <p id="turnText">Turns the drawing a quarter turn.</p>
+        <div class="row">
+          <button class="action" id="rotL" title="Turn 90° counter-clockwise">↺ 90°</button>
+          <button class="action" id="rotR" title="Turn 90° clockwise">↻ 90°</button>
+        </div>
+      </div>
+      <div class="step">
+        <div class="row">
+          <button class="primary" id="done">Done</button>
+          <button class="action" id="replace" title="Put the drawing back in the middle of the survey and start over">Start over</button>
+        </div>
+        <p class="status" id="tStatus"></p>
+      </div>
+    </div>
+  </section>
+
+  <input type="file" id="file" multiple hidden accept=".csv,.txt,.dxf,.zip,.shp,.dbf,.prj,.shx,.cpg">
+
+  <form class="sheet" id="exportSheet" hidden autocomplete="off">
+    <h2 style="margin:0;font-size:14px">Export for Emlid Flow</h2>
+    <div class="field">
+      <span class="label">Format</span>
+      <div class="seg" id="fmt">
+        <button type="button" data-v="csv" aria-pressed="true">CSV points</button>
+        <button type="button" data-v="dxf" aria-pressed="false">DXF lines</button>
+      </div>
+    </div>
+    <div class="field">
+      <span class="label">Include</span>
+      <div class="seg" id="scope">
+        <button type="button" data-v="new" aria-pressed="true">Drawing</button>
+        <button type="button" data-v="all" aria-pressed="false">Drawing + survey</button>
+      </div>
+    </div>
+    <label class="field"><span class="label">Coordinate system name</span><input type="text" id="csName" placeholder="e.g. NAD83(CSRS) / UTM zone 14N"></label>
+    <label class="field"><span class="label">File name</span><input type="text" id="outName"></label>
+    <p class="status" id="exportNote"></p>
+    <div class="btns">
+      <button type="button" class="action" id="exportCancel">Cancel</button>
+      <button type="submit" class="primary" id="exportGo">Save file</button>
+    </div>
+  </form>
+
+  <form class="sheet" id="surveySheet" hidden autocomplete="off">
+    <h2 style="margin:0;font-size:14px">Survey</h2>
+    <p class="status" id="surveySheetInfo">No survey loaded.</p>
+    <div class="row" style="display:flex;gap:6px;flex-wrap:wrap">
+      <button type="button" class="primary" id="pickFile">Choose files…</button>
+      <button type="button" class="action" id="useSample2">Agwest sample</button>
+    </div>
+    <p class="status">CSV from Emlid Flow ("All columns"), DXF, or a Shapefile (.shp with its .dbf and .prj, or a .zip of them). Lines are read from codes like L_1, L_2.</p>
+    <label class="field"><span class="label">Survey grid units</span>
+      <select id="gridUnit">
+        <option value="m">metres</option>
+        <option value="usft">US survey feet</option>
+        <option value="ft">international feet</option>
+      </select>
+    </label>
+    <div class="btns"><button type="button" class="action" id="surveyClose">Close</button></div>
+  </form>
+
+  <div class="toast" id="toast"></div>
+</main>
+
+<script>
+(() => {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const toastEl = $('toast');
+  const toast = msg => { toastEl.textContent = msg; toastEl.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => toastEl.classList.remove('show'), 2600); };
+
+  // Emlid Flow "All columns" CSV header, used when the survey didn't come with one.
+  const EMLID_HDR = ['Name','Code','Control code','Code description','Easting','Northing','Elevation','Description','Longitude','Latitude','Ellipsoidal height','Origin','Easting RMS','Northing RMS','Elevation RMS','Lateral RMS','Antenna height','Antenna height units','Solution status','Correction type','Averaging start','Averaging end','Samples','PDOP','GDOP','Base easting','Base northing','Base elevation','Base longitude','Base latitude','Base ellipsoidal height','Baseline','Mount point','CS name','GPS Satellites','GLONASS Satellites','Galileo Satellites','BeiDou Satellites','QZSS Satellites','Device type','Device serial number','Author'];
+  const LINE_RE = /^L_\d+$/i;
+  // metres per unit
+  const DRAW_M = { m: 1, mm: 0.001, ft: 0.3048, in: 0.0254, units: 1 };
+  const GRID_M = { m: 1, usft: 1200 / 3937, ft: 0.3048 };
+
+  // ---------- state ----------
+  // drawing: the sketch's drawing (shared/CONTRACT.md format, local units, y up)
+  // survey: features in grid coordinates { kind: 'point'|'line', code, name, closed, pts: [{e, n, z, name, raw}] }
+  // T: local (scaled to grid units) -> grid. a = counter-clockwise rotation in radians.
+  const G = {
+    drawing: null, survey: [], header: null, cs: '', file: '', gridUnit: 'm',
+    T: { a: 0, e: 0, n: 0 }, geo: false, placed: false,
+    step: 1, pk: {}, flip: false, base: null,
+    view: null, fmt: 'csv', scope: 'new', outName: ''
+  };
+  const KEY = 'emlid.georef.v1';
+  const PERSIST = ['drawing', 'survey', 'header', 'cs', 'file', 'gridUnit', 'T', 'geo', 'placed', 'view', 'fmt', 'scope', 'outName'];
+  function save() { try { const o = {}; for (const k of PERSIST) o[k] = G[k]; localStorage.setItem(KEY, JSON.stringify(o)); } catch (e) { /* keep going in memory */ } }
+  function load() { try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (o) Object.assign(G, o); } catch (e) {} }
+  load();
+
+  const undoStack = [];
+  const snap = keepWorld => JSON.stringify({ T: G.T, geo: G.geo, placed: G.placed, step: G.step, flip: G.flip, base: G.base, refLine: G.refLine || null, keepWorld: !!keepWorld });
+  function pushUndo(keepWorld) { undoStack.push(snap(keepWorld)); if (undoStack.length > 80) undoStack.shift(); }
+  $('undo').addEventListener('click', () => {
+    const s = undoStack.pop();
+    if (!s) return toast('Nothing to undo');
+    const o = JSON.parse(s), was = { ...G.T };
+    delete o.keepWorld;
+    Object.assign(G, o); G.pk = {};
+    if (JSON.parse(s).keepWorld) rebaseDrawing(was, G.T);   // undoing a grid line: the drawing stays put on the ground
+    save(); refresh();
+  });
+
+  // ---------- geometry ----------
+  const dist = (a, b) => Math.hypot(b.e - a.e, b.n - a.n);
+  const scaleS = () => (DRAW_M[(G.drawing && G.drawing.units) || 'm'] || 1) / GRID_M[G.gridUnit];
+  const fwd = p => { const s = scaleS(), c = Math.cos(G.T.a), si = Math.sin(G.T.a), x = p.x * s, y = p.y * s; return { e: c * x - si * y + G.T.e, n: si * x + c * y + G.T.n }; };
+  // turn the whole placement by d radians (counter-clockwise) about grid point P
+  function rotateT(d, P) {
+    const c = Math.cos(d), s = Math.sin(d), x = G.T.e - P.e, y = G.T.n - P.n;
+    G.T = { a: G.T.a + d, e: P.e + c * x - s * y, n: P.n + s * x + c * y };
+  }
+  const moveT = (de, dn) => { G.T = { ...G.T, e: G.T.e + de, n: G.T.n + dn }; };
+  const wrapPi = a => { a = (a + Math.PI) % (2 * Math.PI); if (a < 0) a += 2 * Math.PI; return a - Math.PI; };
+
+  // drawing as polylines in local units: [{ closed, pts: [{x, y}] }], holes as their own closed rings
+  function drawLines() {
+    const out = [];
+    for (const sh of (G.drawing && G.drawing.shapes) || []) {
+      const ring = r => r.map(([x, y]) => ({ x, y }));
+      const layer = sh.layer || 1;
+      out.push({ closed: !!sh.closed, pts: ring(sh.vertices), layer });
+      for (const h of sh.holes || []) out.push({ closed: true, pts: ring(h), layer });
+    }
+    return out;
+  }
+  const drawWorld = () => drawLines().map(l => ({ closed: l.closed, pts: l.pts.map(fwd) }));
+  function bboxOf(pts) {
+    let a = { e: Infinity, n: Infinity }, b = { e: -Infinity, n: -Infinity };
+    for (const p of pts) { a.e = Math.min(a.e, p.e); a.n = Math.min(a.n, p.n); b.e = Math.max(b.e, p.e); b.n = Math.max(b.n, p.n); }
+    return { min: a, max: b, ok: isFinite(a.e) };
+  }
+  const surveyPts = () => G.survey.flatMap(f => f.pts);
+
+  // Put the drawing's middle on the middle of the survey (keeps the current rotation).
+  function placeDrawing() {
+    const dp = drawLines().flatMap(l => l.pts);
+    const sb = bboxOf(surveyPts());
+    if (!dp.length || !sb.ok) return false;
+    const s = scaleS(), c = Math.cos(G.T.a), si = Math.sin(G.T.a);
+    let mx = 0, my = 0; for (const p of dp) { mx += p.x; my += p.y; } mx = mx / dp.length * s; my = my / dp.length * s;
+    G.T = { a: G.T.a, e: (sb.min.e + sb.max.e) / 2 - (c * mx - si * my), n: (sb.min.n + sb.max.n) / 2 - (si * mx + c * my) };
+    G.placed = true;
+    return true;
+  }
+
+  // UTM grid -> geographic (Krüger series, GRS80). Fills Longitude/Latitude on export.
+  function utmInv(E, N, zone, south) {
+    const a = 6378137, f = 1 / 298.257222101, k0 = 0.9996, n = f / (2 - f), n2 = n * n, n3 = n2 * n;
+    const A = a / (1 + n) * (1 + n2 / 4 + n2 * n2 / 64);
+    const b = [n / 2 - 2 * n2 / 3 + 37 * n3 / 96, n2 / 48 + n3 / 15, 17 * n3 / 480];
+    const xi = (south ? N - 1e7 : N) / (k0 * A), eta = (E - 5e5) / (k0 * A);
+    let xp = xi, ep = eta;
+    b.forEach((bj, j) => { const k = 2 * (j + 1); xp -= bj * Math.sin(k * xi) * Math.cosh(k * eta); ep -= bj * Math.cos(k * xi) * Math.sinh(k * eta); });
+    const chi = Math.asin(Math.sin(xp) / Math.cosh(ep));
+    const lat = chi + (2 * n - 2 * n2 / 3 - 2 * n3) * Math.sin(2 * chi) + (7 * n2 / 3 - 8 * n3 / 5) * Math.sin(4 * chi) + (56 * n3 / 15) * Math.sin(6 * chi);
+    const lon = (zone * 6 - 183) * Math.PI / 180 + Math.atan2(Math.sinh(ep), Math.cos(xp));
+    return [lat * 180 / Math.PI, lon * 180 / Math.PI];
+  }
+  function geoOf(p, cs) {
+    const m = /UTM[ _]zone[ _]?(\d+)\s*([NS])/i.exec(cs || '');
+    return m && G.gridUnit === 'm' ? utmInv(p.e, p.n, +m[1], m[2].toUpperCase() === 'S') : null;
+  }
+
+  // ---------- survey import (CSV, DXF, Shapefile, ZIP) ----------
+  function parseCSV(text) {
+    const rows = []; let row = [], f = '', q = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (q) { if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+      else if (c === '"') q = true;
+      else if (c === ',') { row.push(f); f = ''; }
+      else if (c === '\n') { row.push(f); rows.push(row); row = []; f = ''; }
+      else if (c !== '\r') f += c;
+    }
+    if (f !== '' || row.length) { row.push(f); rows.push(row); }
+    return rows.filter(r => r.some(x => x.trim() !== ''));
+  }
+  const csvCell = v => { v = v == null ? '' : String(v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  function parseSurveyCSV(text) {
+    const rows = parseCSV(text.replace(/^﻿/, ''));
+    if (!rows.length) return { feats: [], header: null, cs: '' };
+    const hdr = rows[0].map(h => h.trim()), hasHdr = hdr.some(h => /^(easting|northing)$/i.test(h));
+    let ix, data;
+    if (hasHdr) {
+      const f = n => hdr.findIndex(h => h.toLowerCase() === n);
+      ix = { name: f('name'), code: f('code'), e: f('easting'), n: f('northing'), z: f('elevation'), desc: f('description'), cs: f('cs name') };
+      data = rows.slice(1);
+    } else { ix = { name: 0, n: 1, e: 2, z: 3, desc: 4, code: -1, cs: -1 }; data = rows; }   // headerless PNEZD
+    const feats = [], groups = new Map(); let cs = '';
+    for (const r of data) {
+      const e = parseFloat(r[ix.e]), n = parseFloat(r[ix.n]);
+      if (!isFinite(e) || !isFinite(n)) continue;
+      const z = parseFloat(r[ix.z]) || 0, name = (r[ix.name] || '').trim(), code = ix.code >= 0 ? (r[ix.code] || '').trim() : '';
+      if (!cs && ix.cs >= 0 && r[ix.cs]) cs = r[ix.cs].trim();
+      const p = { e, n, z, name, raw: hasHdr ? r : null };
+      if (code && LINE_RE.test(code)) {
+        let g = groups.get(code);
+        if (!g) { g = { kind: 'line', code, name: code, pts: [] }; groups.set(code, g); feats.push(g); }
+        g.pts.push(p);
+      } else feats.push({ kind: 'point', code, name, desc: ix.desc >= 0 ? r[ix.desc] : '', pts: [p] });
+    }
+    for (const g of groups.values()) {
+      if (g.pts.length > 3 && dist(g.pts[0], g.pts[g.pts.length - 1]) < 0.001) { g.pts.pop(); g.closed = true; }
+      if (g.pts.length === 1) { g.kind = 'point'; g.name = g.pts[0].name || g.code; }
+    }
+    return { feats, header: hasHdr ? hdr : null, cs };
+  }
+  function parseDXF(text) {
+    const L = text.split(/\r?\n/), ents = []; let cur = null;
+    for (let k = 0; k + 1 < L.length; k += 2) {
+      const c = parseInt(L[k].trim(), 10), v = L[k + 1].trim();
+      if (c === 0) { if (cur) ents.push(cur); cur = { type: v, g: [] }; } else if (cur) cur.g.push([c, v]);
+    }
+    if (cur) ents.push(cur);
+    const feats = [], texts = []; let inEnt = false, poly = null;
+    for (const e of ents) {
+      if (e.type === 'SECTION') { inEnt = e.g.some(([c, v]) => c === 2 && v === 'ENTITIES'); continue; }
+      if (e.type === 'ENDSEC') { inEnt = false; continue; }
+      if (!inEnt) continue;
+      const get = (c, d) => { const x = e.g.find(q => q[0] === c); return x ? x[1] : d; }, num = c => parseFloat(get(c, '0')) || 0, layer = get(8, '');
+      switch (e.type) {
+        case 'POINT': feats.push({ kind: 'point', code: layer, name: '', pts: [{ e: num(10), n: num(20), z: num(30) }] }); break;
+        case 'LINE': feats.push({ kind: 'line', code: layer, pts: [{ e: num(10), n: num(20), z: num(30) }, { e: num(11), n: num(21), z: num(31) }] }); break;
+        case 'LWPOLYLINE': {
+          const pts = [], z = num(38); let cp = null;
+          for (const [c, v] of e.g) { if (c === 10) { cp = { e: parseFloat(v), n: 0, z }; pts.push(cp); } else if (c === 20 && cp) cp.n = parseFloat(v); }
+          feats.push({ kind: 'line', code: layer, closed: !!(parseInt(get(70, '0'), 10) & 1), pts }); break;
+        }
+        case 'POLYLINE': poly = { kind: 'line', code: layer, closed: !!(parseInt(get(70, '0'), 10) & 1), pts: [] }; break;
+        case 'VERTEX': if (poly) poly.pts.push({ e: num(10), n: num(20), z: num(30) }); break;
+        case 'SEQEND': if (poly) { feats.push(poly); poly = null; } break;
+        case 'TEXT': case 'MTEXT': texts.push({ t: get(1, '').replace(/\\P/g, ' ').replace(/[{}]/g, ''), e: num(10), n: num(20) }); break;
+      }
+    }
+    const pts = feats.filter(f => f.kind === 'point');
+    for (const t of texts) {   // point labels are separate TEXT entities next to each point
+      let best = null, bd = 2;
+      for (const f of pts) { if (f.name) continue; const d = dist(f.pts[0], t); if (d < bd) { bd = d; best = f; } }
+      if (best) best.name = t.t;
+    }
+    let k = 1; for (const f of pts) { f.name = f.name || `P${k++}`; f.pts[0].name = f.name; }
+    const cnt = {};
+    for (const f of feats) if (f.kind === 'line') {
+      const b = f.code || 'LINE'; cnt[b] = (cnt[b] || 0) + 1; f.code = f.name = `${b}_${cnt[b]}`;
+      if (f.closed && f.pts.length > 2 && dist(f.pts[0], f.pts[f.pts.length - 1]) < 1e-6) f.pts.pop();
+      f.pts.forEach((p, i) => { p.name = `${f.code}-${i + 1}`; });
+    }
+    return feats.filter(f => f.kind === 'point' || f.pts.length > 1);
+  }
+  function parseDbf(buf) {
+    const dv = new DataView(buf), u8 = new Uint8Array(buf), td = new TextDecoder();
+    const n = dv.getUint32(4, true), hl = dv.getUint16(8, true), rl = dv.getUint16(10, true), fields = [];
+    for (let p = 32; p < hl - 1 && u8[p] !== 0x0D; p += 32) fields.push({ name: td.decode(u8.subarray(p, p + 11)).replace(/\0.*$/, '').trim(), len: u8[p + 16] });
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      let q = hl + i * rl + 1; const o = {};
+      for (const f of fields) { o[f.name.toLowerCase()] = td.decode(u8.subarray(q, q + f.len)).trim(); q += f.len; }
+      out.push(o);
+    }
+    return out;
+  }
+  function parseShp(buf, dbf, base) {
+    const dv = new DataView(buf), recs = []; let off = 100;
+    while (off + 8 <= buf.byteLength) {
+      const len = dv.getInt32(off + 4, false) * 2, c = off + 8; off = c + len;
+      if (off > buf.byteLength) break;
+      const t = dv.getInt32(c, true), P = (b, j) => ({ e: dv.getFloat64(b + 16 * j, true), n: dv.getFloat64(b + 16 * j + 8, true), z: 0 });
+      if (t === 1 || t === 11 || t === 21) recs.push({ kind: 'point', parts: [[{ ...P(c + 4, 0), z: t === 11 ? dv.getFloat64(c + 20, true) : 0 }]] });
+      else if ([3, 13, 23, 5, 15, 25].includes(t)) {
+        const np = dv.getInt32(c + 36, true), nq = dv.getInt32(c + 40, true), pb = c + 44, qb = pb + 4 * np, zb = (t === 13 || t === 15) ? qb + 16 * nq + 16 : 0, parts = [];
+        for (let i = 0; i < np; i++) {
+          const a = dv.getInt32(pb + 4 * i, true), b = i + 1 < np ? dv.getInt32(pb + 4 * (i + 1), true) : nq, pts = [];
+          for (let j = a; j < b; j++) pts.push({ ...P(qb, j), z: zb ? dv.getFloat64(zb + 8 * j, true) : 0 });
+          parts.push(pts);
+        }
+        recs.push({ kind: 'line', closed: t % 10 === 5, parts });
+      } else if (t === 8 || t === 18 || t === 28) {
+        const nq = dv.getInt32(c + 36, true), pts = []; for (let j = 0; j < nq; j++) pts.push(P(c + 40, j));
+        recs.push({ kind: 'point', parts: [pts] });
+      } else recs.push(null);
+    }
+    const attrs = dbf ? parseDbf(dbf) : [], feats = [];
+    recs.forEach((r, i) => {
+      if (!r) return;
+      const a = attrs[i] || {}, name = a.name || a.id || '', code = a.code || base;
+      if (r.kind === 'line') r.parts.forEach((pts, j) => {
+        if (r.closed && pts.length > 2 && dist(pts[0], pts[pts.length - 1]) < 1e-6) pts.pop();
+        if (pts.length < 2) return;
+        const nm = (name || `${base}_${i + 1}`) + (r.parts.length > 1 ? `.${j + 1}` : '');
+        feats.push({ kind: 'line', code: nm, name: nm, closed: r.closed, pts: pts.map((p, k) => ({ ...p, name: `${nm}-${k + 1}` })) });
+      });
+      else r.parts[0].forEach((p, j) => {
+        const nm = (name || `${base}_${i + 1}`) + (r.parts[0].length > 1 ? `.${j + 1}` : '');
+        feats.push({ kind: 'point', code, name: nm, pts: [{ ...p, name: nm }] });
+      });
+    });
+    return feats;
+  }
+  async function unzip(buf) {
+    const u8 = new Uint8Array(buf), dv = new DataView(buf); let eocd = -1;
+    for (let i = u8.length - 22; i >= Math.max(0, u8.length - 65557); i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+    if (eocd < 0) throw new Error('not a zip');
+    const n = dv.getUint16(eocd + 10, true), out = []; let p = dv.getUint32(eocd + 16, true);
+    for (let k = 0; k < n && dv.getUint32(p, true) === 0x02014b50; k++) {
+      const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true), nl = dv.getUint16(p + 28, true), el = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), lho = dv.getUint32(p + 42, true);
+      const name = new TextDecoder().decode(u8.subarray(p + 46, p + 46 + nl)); p += 46 + nl + el + cl;
+      if (name.endsWith('/') || /(^|\/)__MACOSX\//.test(name)) continue;
+      const start = lho + 30 + dv.getUint16(lho + 26, true) + dv.getUint16(lho + 28, true), data = u8.slice(start, start + csize);
+      let bytes;
+      if (method === 0) bytes = data;
+      else if (method === 8) bytes = new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
+      else continue;
+      out.push({ name: name.split('/').pop(), bytes });
+    }
+    return out;
+  }
+  const extOf = n => ((/\.([^./]+)$/.exec(n) || [])[1] || '').toLowerCase();
+  const bufOf = u => u.buffer.slice(u.byteOffset, u.byteOffset + u.byteLength);
+  async function importFiles(list) {
+    const files = [...list]; if (!files.length) return;
+    const entries = [];
+    try {
+      for (const f of files) {
+        const buf = await f.arrayBuffer();
+        if (extOf(f.name) === 'zip') entries.push(...await unzip(buf)); else entries.push({ name: f.name, bytes: new Uint8Array(buf) });
+      }
+    } catch (e) { return toast('Could not open that file. Export it again from Emlid Flow and retry.'); }
+    const td = new TextDecoder(), shp = {}, skipped = [];
+    let feats = [], header = null, cs = '';
+    for (const en of entries) {
+      const ext = extOf(en.name), base = en.name.replace(/\.[^.]+$/, '');
+      if (ext === 'csv' || ext === 'txt') { const r = parseSurveyCSV(td.decode(en.bytes)); feats.push(...r.feats); header = header || r.header; cs = cs || r.cs; }
+      else if (ext === 'dxf') feats.push(...parseDXF(td.decode(en.bytes)));
+      else if (['shp', 'dbf', 'prj', 'shx', 'cpg'].includes(ext)) (shp[base] = shp[base] || {})[ext] = en.bytes;
+      else skipped.push(en.name);
+    }
+    for (const [base, g] of Object.entries(shp)) {
+      if (!g.shp) { skipped.push(`${base}.dbf (pick the .shp file with it)`); continue; }
+      try { feats.push(...parseShp(bufOf(g.shp), g.dbf && bufOf(g.dbf), base)); } catch (e) { skipped.push(`${base}.shp`); continue; }
+      if (g.prj && !cs) { const m = /PROJCS\["([^"]+)"/.exec(td.decode(g.prj)); if (m) cs = m[1].replace(/_/g, ' '); }
+    }
+    if (!feats.length) {
+      const k = skipped.find(n => /\.km[lz]$/i.test(n));
+      return toast(k ? 'KML only stores latitude/longitude. Export CSV, DXF or Shapefile instead.' : 'No points or lines found. Export CSV, DXF or Shapefile from Emlid Flow.');
+    }
+    finishImport(feats, header, cs, files.length === 1 ? files[0].name : `${files.length} files`, skipped);
+  }
+  function finishImport(feats, header, cs, label, skipped) {
+    pushUndo();
+    const newSite = label !== G.file;
+    G.survey = feats; G.header = header; G.cs = cs || G.cs || ''; G.file = label; G.outName = '';
+    if (/feet|foot|ft\b/i.test(G.cs) && G.gridUnit === 'm') G.gridUnit = /us/i.test(G.cs) ? 'usft' : 'ft';
+    // a different survey is a different site: put the drawing on it and start the steps again
+    if (newSite || !G.placed) {
+      G.geo = false; G.step = 1; G.pk = {}; G.flip = false; G.refLine = null;
+      if (!placeDrawing()) {   // nothing drawn yet: put the drawing origin in the middle of the survey
+        const b = bboxOf(surveyPts());
+        G.T = { a: 0, e: Math.round((b.min.e + b.max.e) / 2), n: Math.round((b.min.n + b.max.n) / 2) }; G.placed = true;
+      }
+      if (hasSurveyLines()) startGridPick();
+    }
+    save(); fitView(); refresh();
+    const nl = feats.filter(f => f.kind === 'line').length;
+    toast(`Survey loaded: ${feats.length - nl} points, ${nl} lines${skipped.length ? ` · skipped ${skipped.length} file${skipped.length > 1 ? 's' : ''}` : ''}`);
+  }
+  const hasSurveyLines = () => G.survey.some(f => f.kind === 'line' && f.pts.some((p, i) => i && dist(p, f.pts[i - 1]) > 1e-6));
+  // Grid direction is set in the Georeference tab: tap a survey line and the grid turns the least amount
+  // to line up with it — never flipped, reversed or turned more than 45°.
+  function startGridPick() {
+    if (!hasSurveyLines()) return toast('This survey has no lines to set the grid from');
+    G.gridPick = true; G.pk = {};
+    showTab(true); setPanel(true); refresh();
+    toast('Tap a survey line to set the grid direction');
+  }
+  function setGridFromLine(A, B) {
+    const ang = Math.atan2(B.n - A.n, B.e - A.e), q = Math.PI / 2;
+    const a = ang - Math.round(ang / q) * q;   // the closest grid direction, within ±45°
+    pushUndo(true);
+    const was = { ...G.T };
+    G.T = { a, e: A.e, n: A.n };
+    rebaseDrawing(was, G.T);
+    G.geo = true; G.step = 3; G.pk = {}; G.refLine = { A, B }; G.placed = true; G.gridPick = false;
+    save(); refresh();
+    toSketch({ type: 'fit' });
+    toast(`Grid turned ${(a * 180 / Math.PI).toFixed(2)}° to line up with the survey line`);
+  }
+  // re-express the drawing for a new transform so every point keeps its grid position
+  function rebaseDrawing(from, to) {
+    if (!G.drawing || !G.drawing.shapes || !G.drawing.shapes.length) return;
+    const s = scaleS(), cf = Math.cos(from.a), sf = Math.sin(from.a), ct = Math.cos(to.a), st = Math.sin(to.a);
+    const conv = ([x, y]) => {
+      const X = x * s, Y = y * s, e = cf * X - sf * Y + from.e, n = sf * X + cf * Y + from.n, dx = e - to.e, dy = n - to.n;
+      return [+((ct * dx + st * dy) / s).toFixed(6), +((-st * dx + ct * dy) / s).toFixed(6)];
+    };
+    G.drawing = { ...G.drawing, shapes: G.drawing.shapes.map(sh => ({ ...sh, vertices: sh.vertices.map(conv), ...(sh.holes ? { holes: sh.holes.map(h => h.map(conv)) } : {}) })) };
+    toSketch({ type: 'load', id: 3, drawing: G.drawing });
+  }
+  $('gridRef').addEventListener('click', () => { if (!G.survey.length) return toast('Load a survey first'); startGridPick(); });
+
+  async function useSample() {
+    for (const path of ['agwest-russel.csv', '../layout-app/agwest-russel.csv']) {
+      try {
+        const r = await fetch(path);
+        if (!r.ok) continue;
+        const res = parseSurveyCSV(await r.text());
+        if (res.feats.length) { finishImport(res.feats, res.header, res.cs, 'agwest-russel.csv', []); closeSheets(); return; }
+      } catch (e) { /* try the next place */ }
+    }
+    toast('The sample survey is not available here');
+  }
+
+  // ---------- export ----------
+  function exportFeats() {
+    let k = 0;
+    const drawn = drawLines().map(l => {
+      k++;
+      const code = `LO_${k}`;
+      return { kind: 'line', src: 'new', layer: l.layer, code, name: code, closed: l.closed, pts: l.pts.map((p, i) => ({ ...fwd(p), z: 0, name: `${code}-${i + 1}` })) };
+    });
+    return G.scope === 'all' ? G.survey.map(f => ({ ...f, src: 'survey' })).concat(drawn) : drawn;
+  }
+  const defaultBase = () => (G.file && !/^\d+ files$/.test(G.file) ? G.file.replace(/\.[^.]+$/, '') : 'site') + '-layout';
+  const baseName = () => ((G.outName || '').trim() || defaultBase()).replace(/[\\/:*?"<>|]+/g, '-');
+  function buildCSV() {
+    const hdr = G.header || EMLID_HDR, ci = n => hdr.findIndex(h => h.toLowerCase() === n.toLowerCase());
+    const lines = [hdr.map(csvCell).join(',')];
+    for (const f of exportFeats()) {
+      // Emlid Flow draws a line through points that share its code; repeat the first point to close it
+      const pts = f.kind === 'line' && f.closed ? [...f.pts, { ...f.pts[0], name: `${f.code}-${f.pts.length + 1}` }] : f.pts;
+      pts.forEach((p, i) => {
+        if (f.src === 'survey' && p.raw && p.raw.length === hdr.length) { lines.push(p.raw.map(csvCell).join(',')); return; }
+        const r = new Array(hdr.length).fill(''), set = (key, v) => { const j = ci(key); if (j >= 0) r[j] = v; };
+        const g = G.geo ? geoOf(p, G.cs) : null;
+        set('Name', f.kind === 'point' ? f.name : (p.name || `${f.code}-${i + 1}`));
+        set('Code', f.code || ''); set('Description', f.desc || '');
+        set('Easting', p.e.toFixed(3)); set('Northing', p.n.toFixed(3)); set('Elevation', (p.z || 0).toFixed(3));
+        if (g) { set('Longitude', g[1].toFixed(8)); set('Latitude', g[0].toFixed(8)); }
+        set('Origin', 'Local'); set('Antenna height units', 'm'); set('CS name', G.geo ? G.cs : '');
+        lines.push(r.map(csvCell).join(','));
+      });
+    }
+    return lines.join('\r\n') + '\r\n';
+  }
+  function buildDXF() {
+    const L = [], w = (c, v) => L.push(String(c), String(v)), fs = exportFeats();
+    // each sketch layer gets its own DXF layer: LAYOUT_L1_LINES, LAYOUT_L2_LINES, ...
+    const lay = f => (f.src === 'survey' ? 'SURVEY' : `LAYOUT_L${f.layer || 1}`) + (f.kind === 'point' ? '_POINTS' : '_LINES');
+    const layers = [...new Set(fs.map(lay).concat(['LABELS']))];
+    const color = { LAYOUT_LINES: 1, LAYOUT_POINTS: 1, SURVEY_LINES: 5, SURVEY_POINTS: 5, LABELS: 7 };
+    w(0, 'SECTION'); w(2, 'HEADER'); w(9, '$ACADVER'); w(1, 'AC1009'); w(0, 'ENDSEC');
+    w(0, 'SECTION'); w(2, 'TABLES'); w(0, 'TABLE'); w(2, 'LAYER'); w(70, layers.length);
+    for (const l of layers) { w(0, 'LAYER'); w(2, l); w(70, 0); w(62, color[l] || (l.startsWith('LAYOUT') ? 1 : 7)); w(6, 'CONTINUOUS'); }
+    w(0, 'ENDTAB'); w(0, 'ENDSEC');
+    w(0, 'SECTION'); w(2, 'ENTITIES');
+    for (const f of fs) {
+      const l = lay(f);
+      if (f.kind === 'line') {
+        w(0, 'POLYLINE'); w(8, l); w(66, 1); w(10, 0); w(20, 0); w(30, 0); w(70, f.closed ? 1 : 0);
+        for (const p of f.pts) { w(0, 'VERTEX'); w(8, l); w(10, p.e.toFixed(4)); w(20, p.n.toFixed(4)); w(30, (p.z || 0).toFixed(4)); }
+        w(0, 'SEQEND'); w(8, l);
+      } else {
+        const p = f.pts[0];
+        w(0, 'POINT'); w(8, l); w(10, p.e.toFixed(4)); w(20, p.n.toFixed(4)); w(30, (p.z || 0).toFixed(4));
+      }
+      const p = f.pts[0], t = f.kind === 'point' ? f.name : f.code;
+      if (t) { w(0, 'TEXT'); w(8, 'LABELS'); w(10, (p.e + 0.2).toFixed(4)); w(20, (p.n + 0.2).toFixed(4)); w(30, 0); w(40, 0.4); w(1, t); }
+    }
+    w(0, 'ENDSEC'); w(0, 'EOF');
+    return L.join('\r\n') + '\r\n';
+  }
+  function crc32(u8) {
+    let crc = 0xFFFFFFFF;
+    for (let i = 0; i < u8.length; i++) { let c = (crc ^ u8[i]) & 0xFF; for (let k = 0; k < 8; k++) c = c & 1 ? (c >>> 1) ^ 0xEDB88320 : c >>> 1; crc = (crc >>> 8) ^ c; }
+    return (crc ^ 0xFFFFFFFF) >>> 0;
+  }
+  // stored (uncompressed) zip: the file-save prompt accepts .zip but not .dxf
+  function zipStore(files) {
+    const enc = new TextEncoder(), chunks = [], central = []; let off = 0;
+    for (const f of files) {
+      const name = enc.encode(f.name), data = enc.encode(f.text), crc = crc32(data);
+      const lh = new DataView(new ArrayBuffer(30));
+      lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(12, 33, true);
+      lh.setUint32(14, crc, true); lh.setUint32(18, data.length, true); lh.setUint32(22, data.length, true); lh.setUint16(26, name.length, true);
+      const ch = new DataView(new ArrayBuffer(46));
+      ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(14, 33, true);
+      ch.setUint32(16, crc, true); ch.setUint32(20, data.length, true); ch.setUint32(24, data.length, true); ch.setUint16(28, name.length, true); ch.setUint32(42, off, true);
+      chunks.push(lh.buffer, name, data); central.push(ch.buffer, name);
+      off += 30 + name.length + data.length;
+    }
+    const cdSize = central.reduce((a, c) => a + c.byteLength, 0), end = new DataView(new ArrayBuffer(22));
+    end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
+    end.setUint32(12, cdSize, true); end.setUint32(16, off, true);
+    return new Blob([...chunks, ...central, end.buffer], { type: 'application/zip' });
+  }
+  // In Claude, saving goes through the viewer's save prompt; opened as a plain file, a normal download.
+  const dlCap = window.claude && window.claude.use ? window.claude.use('downloads').catch(() => null) : Promise.resolve(null);
+  async function deliver(name, text) {
+    // installed app (not inside Claude): hand the file to the phone's share sheet — Emlid Flow, Files, AirDrop, Mail
+    if (!window.claude && navigator.canShare) {
+      const types = /\.csv$/i.test(name) ? ['text/csv', 'text/plain'] : ['application/dxf', 'text/plain'];
+      for (const type of types) {
+        const file = new File([text], name, { type });
+        if (!navigator.canShare({ files: [file] })) continue;
+        try { await navigator.share({ files: [file], title: name }); toast(`Shared ${name}`); }
+        catch (e) { if (e && e.name !== 'AbortError') toast('Sharing did not work here. Try again.'); }
+        return;
+      }
+    }
+    const dl = await dlCap;
+    if (dl) {
+      let filename = name, data = text;
+      if (/\.dxf$/i.test(name)) { filename = name.replace(/\.dxf$/i, '-dxf.zip'); data = zipStore([{ name, text }]); }
+      try { await dl.save({ filename, data }); toast(`Saved ${filename}`); }
+      catch (e) {
+        const c = e && e.code;
+        if (c === 'declined') return;
+        if (c === 'rate_limited') return toast('A save is already waiting for your answer');
+        if (c === 'extension_not_enabled') return toast('ZIP files cannot be saved here. Use the CSV export.');
+        toast('Saving files is not available in this view');
+      }
+      return;
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' })); a.download = name;
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+    toast(`Saved ${name}`);
+  }
+
+  // ---------- the embedded sketch (shared/CONTRACT.md) ----------
+  const frame = $('sketchFrame');
+  // published: sketch/index.html next to this page; opened from the project folder: ../sketch/index.html
+  frame.src = /\/georef\/(index\.html)?$/.test(location.pathname) ? '../sketch/index.html' : 'sketch/index.html';
+  const toSketch = msg => frame.contentWindow && frame.contentWindow.postMessage({ protocol: 'emlid-sketch', version: 1, ...msg }, '*');
+  window.addEventListener('message', e => {
+    if (e.source !== frame.contentWindow) return;
+    const m = e.data;
+    if (!m || m.protocol !== 'emlid-sketch') return;
+    if (m.type === 'ready') {
+      if (G.drawing && G.drawing.shapes && G.drawing.shapes.length) toSketch({ type: 'load', id: 1, drawing: G.drawing });
+      lastBg = null; sendBackground();
+    } else if (m.type === 'changed' || m.type === 'drawing') {
+      const hadShapes = G.drawing && G.drawing.shapes && G.drawing.shapes.length;
+      G.drawing = m.drawing;
+      if (!hadShapes && G.survey.length && !G.geo) placeDrawing();
+      save(); sendBackground();
+      if (!geoView.hidden) refresh();
+    }
+  });
+
+  // ---------- views ----------
+  const drawView = $('drawView'), geoView = $('geoView');
+  function showTab(geo) {
+    $('tabDraw').setAttribute('aria-pressed', String(!geo));
+    $('tabGeo').setAttribute('aria-pressed', String(geo));
+    drawView.hidden = geo; geoView.hidden = !geo;
+    closeSheets();
+    if (geo) { resize(); if (!G.view) fitView(); refresh(); }
+  }
+  // phone header: the actions live in a ⋯ menu that closes after any choice
+  const hactions = $('hactions'), more = $('more');
+  const setMore = open => { hactions.classList.toggle('open', open); more.setAttribute('aria-expanded', String(open)); };
+  more.addEventListener('click', e => { e.stopPropagation(); setMore(!hactions.classList.contains('open')); });
+  hactions.addEventListener('click', () => setMore(false));
+  document.addEventListener('pointerdown', e => { if (!hactions.contains(e.target) && e.target !== more) setMore(false); });
+  $('tabDraw').addEventListener('click', () => showTab(false));
+  $('tabGeo').addEventListener('click', () => showTab(true));
+
+  // ---------- georeference canvas ----------
+  const cv = $('gcv'), ctx = cv.getContext('2d');
+  let W = 0, H = 0, colors = {};
+  function readColors() {
+    const cs = getComputedStyle(document.documentElement);
+    for (const k of ['paper', 'panel', 'ink', 'muted', 'line', 'grid', 'shape', 'survey', 'pick', 'ok']) colors[k] = cs.getPropertyValue('--' + k).trim();
+  }
+  function resize() {
+    const r = geoView.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    if (!r.width) return;
+    W = r.width; H = r.height;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    render();
+  }
+  const toS = w => ({ x: W / 2 + (w.e - G.view.cx) * G.view.k, y: H / 2 - (w.n - G.view.cy) * G.view.k });
+  const toW = s => ({ e: G.view.cx + (s.x - W / 2) / G.view.k, n: G.view.cy - (s.y - H / 2) / G.view.k });
+  function fitView() {
+    const pts = surveyPts().concat(drawWorld().flatMap(l => l.pts)), b = bboxOf(pts);
+    if (!b.ok) { G.view = { cx: 0, cy: 0, k: 20 }; return; }
+    const w = Math.max(1, b.max.e - b.min.e), h = Math.max(1, b.max.n - b.min.n);
+    const padL = W > 700 ? 370 : 0;   // on wide screens keep clear of the steps panel on the left
+    const k = Math.max(0.01, Math.min(2000, Math.min(((W || 600) - padL) * 0.85 / w, (H || 400) * 0.85 / h)));
+    G.view = { cx: (b.min.e + b.max.e) / 2 - padL / 2 / k, cy: (b.min.n + b.max.n) / 2, k };
+    save();
+  }
+  function zoomAt(s, f) {
+    const w = toW(s);
+    G.view.k = Math.max(0.01, Math.min(5000, G.view.k * f));
+    G.view.cx = w.e - (s.x - W / 2) / G.view.k; G.view.cy = w.n + (s.y - H / 2) / G.view.k;
+    render();
+  }
+  $('zIn').addEventListener('click', () => zoomAt({ x: W / 2, y: H / 2 }, 1.4));
+  $('zOut').addEventListener('click', () => zoomAt({ x: W / 2, y: H / 2 }, 1 / 1.4));
+  $('zFit').addEventListener('click', () => { fitView(); render(); });
+
+  function strokeLine(pts, closed) {
+    ctx.beginPath();
+    pts.forEach((p, i) => { const q = toS(p); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); });
+    if (closed) ctx.closePath();
+    ctx.stroke();
+  }
+  function render() {
+    if (!W || !G.view) return;
+    ctx.fillStyle = colors.paper; ctx.fillRect(0, 0, W, H);
+    drawGeoGrid();
+    // survey: points as small crosses, lines in the survey colour (brighter while a grid line is being picked)
+    ctx.strokeStyle = G.gridPick ? colors.pick : colors.survey; ctx.lineWidth = G.gridPick ? 2.5 : 1.5; ctx.lineJoin = 'round';
+    for (const f of G.survey) {
+      if (f.kind === 'line') strokeLine(f.pts, f.closed);
+      for (const p of f.pts) {
+        const q = toS(p);
+        ctx.beginPath(); ctx.moveTo(q.x - 4, q.y - 4); ctx.lineTo(q.x + 4, q.y + 4); ctx.moveTo(q.x - 4, q.y + 4); ctx.lineTo(q.x + 4, q.y - 4); ctx.stroke();
+      }
+    }
+    if (G.view.k > 8) {
+      ctx.fillStyle = colors.muted; ctx.font = '11px "IBM Plex Mono", ui-monospace, monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+      for (const f of G.survey) if (f.kind === 'point' && f.name) { const q = toS(f.pts[0]); ctx.fillText(f.name, q.x + 6, q.y - 4); }
+    }
+    // the drawing, placed by T
+    ctx.strokeStyle = colors.shape; ctx.lineWidth = 2.5; ctx.lineJoin = 'miter';
+    for (const l of drawWorld()) strokeLine(l.pts, l.closed);
+    ctx.fillStyle = colors.paper;
+    for (const l of drawWorld()) for (const p of l.pts) { const q = toS(p); ctx.beginPath(); ctx.arc(q.x, q.y, 3, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = colors.shape; ctx.lineWidth = 1.5; ctx.stroke(); }
+    // current picks
+    ctx.strokeStyle = colors.pick; ctx.fillStyle = colors.pick;
+    const pk = G.pk;
+    if (pk.dEdge) { ctx.lineWidth = 6; ctx.globalAlpha = 0.5; strokeLine([fwd(pk.dEdge.a), fwd(pk.dEdge.b)], false); ctx.globalAlpha = 1; }
+    if (pk.sEdge) { ctx.lineWidth = 6; ctx.globalAlpha = 0.5; strokeLine([pk.sEdge.a, pk.sEdge.b], false); ctx.globalAlpha = 1; }
+    for (const p of [pk.dPt && fwd(pk.dPt), pk.sPt].filter(Boolean)) { const q = toS(p); ctx.beginPath(); ctx.arc(q.x, q.y, 7, 0, Math.PI * 2); ctx.lineWidth = 2.5; ctx.stroke(); }
+    drawNorth(); drawScale();
+  }
+  // the drawing grid, faint, in grid squares of the sketch, turned by the transform
+  function drawGeoGrid() {
+    const sqM = ((G.drawing && G.drawing.gridSquare) || 1) * (DRAW_M[(G.drawing && G.drawing.units) || 'm'] || 1);
+    let step = sqM / GRID_M[G.gridUnit];
+    while (step * G.view.k < 10) step *= 5;          // keep lines at least 10 px apart
+    const c = Math.cos(G.T.a), si = Math.sin(G.T.a);
+    const toG = (x, y) => ({ e: G.T.e + c * x - si * y, n: G.T.n + si * x + c * y });
+    // the screen corners in grid-aligned coordinates tell which lines are on screen
+    const corners = [toW({ x: 0, y: 0 }), toW({ x: W, y: 0 }), toW({ x: 0, y: H }), toW({ x: W, y: H })]
+      .map(w => { const dx = w.e - G.T.e, dy = w.n - G.T.n; return { x: c * dx + si * dy, y: -si * dx + c * dy }; });
+    const xs = corners.map(q => q.x), ys = corners.map(q => q.y);
+    const x0 = Math.floor(Math.min(...xs) / step), x1 = Math.ceil(Math.max(...xs) / step);
+    const y0 = Math.floor(Math.min(...ys) / step), y1 = Math.ceil(Math.max(...ys) / step);
+    if ((x1 - x0) + (y1 - y0) > 600) return;
+    ctx.save(); ctx.lineWidth = 1;
+    const line = (a, b, major) => {
+      ctx.strokeStyle = colors.line; ctx.globalAlpha = major ? 0.9 : 0.45;
+      const p = toS(a), q = toS(b); ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke();
+    };
+    for (let i = x0; i <= x1; i++) line(toG(i * step, y0 * step), toG(i * step, y1 * step), i % 5 === 0);
+    for (let j = y0; j <= y1; j++) line(toG(x0 * step, j * step), toG(x1 * step, j * step), j % 5 === 0);
+    ctx.restore();
+  }
+  function drawNorth() {
+    const x = W - 34, y = 84;
+    ctx.fillStyle = colors.ink; ctx.strokeStyle = colors.ink; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(x, y - 16); ctx.lineTo(x + 7, y + 6); ctx.lineTo(x, y + 1); ctx.lineTo(x - 7, y + 6); ctx.closePath(); ctx.fill();
+    ctx.font = '600 12px "IBM Plex Sans Condensed", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillText('N', x, y - 18);
+  }
+  function drawScale() {
+    const uName = { m: 'm', usft: 'US ft', ft: 'ft' }[G.gridUnit];
+    const target = 120 / G.view.k, e = Math.pow(10, Math.floor(Math.log10(target))), f = target / e;
+    const len = (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * e, px = len * G.view.k;
+    const x1 = W - 24, x0 = x1 - px, y = H - 22;
+    ctx.fillStyle = colors.ink; ctx.fillRect(x0, y, px, 4);
+    ctx.font = '11px "IBM Plex Mono", ui-monospace, monospace'; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+    ctx.fillText(`${+len.toPrecision(3)} ${uName}`, x1, y - 4);
+  }
+
+  // ---------- picking ----------
+  function nearestSeg(lines, s, reach) {
+    let best = null, bd = reach;
+    lines.forEach((l, li) => {
+      const n = l.pts.length, E = l.closed ? n : n - 1;
+      for (let i = 0; i < E; i++) {
+        if (dist(l.pts[i], l.pts[(i + 1) % n]) < 1e-6) continue;   // repeated survey points: no direction to align to
+        const a = toS(l.pts[i]), b = toS(l.pts[(i + 1) % n]), ab = { x: b.x - a.x, y: b.y - a.y }, L2 = ab.x * ab.x + ab.y * ab.y;
+        const t = L2 ? Math.max(0, Math.min(1, ((s.x - a.x) * ab.x + (s.y - a.y) * ab.y) / L2)) : 0;
+        const d = Math.hypot(a.x + ab.x * t - s.x, a.y + ab.y * t - s.y);
+        if (d < bd) { bd = d; best = { li, i, t }; }
+      }
+    });
+    return best;
+  }
+  function nearestPt(pts, s, reach) {
+    let best = null, bd = reach;
+    pts.forEach((p, i) => { const q = toS(p), d = Math.hypot(q.x - s.x, q.y - s.y); if (d < bd) { bd = d; best = i; } });
+    return best;
+  }
+  function tapGeo(s) {
+    if (G.gridPick) {
+      const sl = G.survey.filter(f => f.kind === 'line'), h = nearestSeg(sl, s, 26);
+      if (!h) return toast('Tap one of the survey lines');
+      const f = sl[h.li];
+      setGridFromLine(f.pts[h.i], f.pts[(h.i + 1) % f.pts.length]);
+      return;
+    }
+    if (!G.drawing || !G.drawing.shapes || !G.drawing.shapes.length) return toast('Draw something in the Draw tab first');
+    if (!G.survey.length) return toast('Load a survey first');
+    const local = drawLines(), world = drawWorld(), pk = G.pk;
+    if (G.step === 1) {
+      if (!pk.dEdge) {
+        const h = nearestSeg(world, s, 26);
+        if (!h) return toast('Tap an edge of your drawing (blue)');
+        const l = local[h.li]; pk.dEdge = { a: l.pts[h.i], b: l.pts[(h.i + 1) % l.pts.length] };
+      } else {
+        const sl = G.survey.filter(f => f.kind === 'line');
+        const h = nearestSeg(sl, s, 26);
+        if (!h) return toast('Tap a surveyed line (grey)');
+        const f = sl[h.li], a = f.pts[h.i], b = f.pts[(h.i + 1) % f.pts.length];
+        pk.sEdge = { a, b };
+        applyAlign();
+      }
+    } else if (G.step === 2) {
+      if (!pk.dPt) {
+        const all = local.flatMap(l => l.pts), i = nearestPt(all.map(fwd), s, 30);
+        if (i === null) return toast('Tap a corner of your drawing');
+        pk.dPt = all[i];
+      } else {
+        const sp = surveyPts(), i = nearestPt(sp, s, 30);
+        if (i === null) return toast('Tap a surveyed point');
+        pk.sPt = sp[i];
+        applyMove();
+      }
+    }
+    refresh();
+  }
+  // Step 1: turn the drawing so the picked edge runs along the survey line, then slide it onto that line.
+  function applyAlign() {
+    pushUndo();
+    const pk = G.pk, wa = fwd(pk.dEdge.a), wb = fwd(pk.dEdge.b);
+    let d = wrapPi(Math.atan2(pk.sEdge.b.n - pk.sEdge.a.n, pk.sEdge.b.e - pk.sEdge.a.e) - Math.atan2(wb.n - wa.n, wb.e - wa.e));
+    if (d > Math.PI / 2) d -= Math.PI; else if (d < -Math.PI / 2) d += Math.PI;   // the smallest turn that makes them parallel
+    if (G.flip) d += Math.PI;
+    const mid = { e: (wa.e + wb.e) / 2, n: (wa.n + wb.n) / 2 };
+    rotateT(d, mid);
+    const m2 = { e: (fwd(pk.dEdge.a).e + fwd(pk.dEdge.b).e) / 2, n: (fwd(pk.dEdge.a).n + fwd(pk.dEdge.b).n) / 2 };
+    const sa = pk.sEdge.a, sb = pk.sEdge.b, u = { e: sb.e - sa.e, n: sb.n - sa.n }, L2 = u.e * u.e + u.n * u.n || 1;
+    const t = ((m2.e - sa.e) * u.e + (m2.n - sa.n) * u.n) / L2, foot = { e: sa.e + u.e * t, n: sa.n + u.n * t };
+    moveT(foot.e - m2.e, foot.n - m2.n);
+    G.step = 2; G.pk = { aligned: { ...pk } };
+    save();
+    toast('Aligned. Now tap a corner of your drawing, then the survey point it sits on.');
+  }
+  // Step 2: slide the drawing so the picked corner sits on the picked survey point.
+  function applyMove() {
+    pushUndo();
+    const w = fwd(G.pk.dPt);
+    moveT(G.pk.sPt.e - w.e, G.pk.sPt.n - w.n);
+    G.step = 3; G.pk = { ...G.pk };
+    save();
+    toast('Positioned. Check it, then tap Done.');
+  }
+  $('flip').addEventListener('click', () => {
+    if (G.step < 2) return toast('Align first, then flip if the drawing faces the wrong way');
+    pushUndo();
+    // turn 180° about the aligned edge's middle: stays on the line, faces the other way
+    const src = G.pk.aligned;
+    if (!src) return;
+    const wa = fwd(src.dEdge.a), wb = fwd(src.dEdge.b);
+    rotateT(Math.PI, { e: (wa.e + wb.e) / 2, n: (wa.n + wb.n) / 2 });
+    G.flip = !G.flip; save(); refresh();
+  });
+  // quarter turns keep whatever is already fixed: the positioned corner, or the aligned edge's middle
+  function turnPivot() {
+    if (G.step > 2 && G.pk.sPt) return { p: G.pk.sPt, why: 'the corner you positioned' };
+    const al = G.pk.aligned;
+    if (al) { const a = fwd(al.dEdge.a), b = fwd(al.dEdge.b); return { p: { e: (a.e + b.e) / 2, n: (a.n + b.n) / 2 }, why: 'the middle of the aligned edge' }; }
+    const bb = bboxOf(drawWorld().flatMap(l => l.pts));
+    return bb.ok ? { p: { e: (bb.min.e + bb.max.e) / 2, n: (bb.min.n + bb.max.n) / 2 }, why: 'the middle of the drawing' } : null;
+  }
+  function quarterTurn(dir) {
+    const pv = turnPivot();
+    if (!pv || !G.survey.length) return toast('Load a survey and draw something first');
+    pushUndo();
+    rotateT(dir * Math.PI / 2, pv.p);
+    save(); refresh();
+  }
+  $('gridPickBtn').addEventListener('click', () => { if (!G.survey.length) return toast('Load a survey first'); if (G.gridPick) { G.gridPick = false; refresh(); } else startGridPick(); });
+  $('rotL').addEventListener('click', () => quarterTurn(1));
+  $('rotR').addEventListener('click', () => quarterTurn(-1));
+  // the steps panel closes on Done; the "Georeferenced · Edit" button brings it back
+  function setPanel(open) {
+    $('panel').hidden = !open; $('reopen').hidden = open;
+    $('reopen').textContent = G.geo ? 'Georeferenced · Edit' : 'Georeference steps';
+  }
+  $('hidePanel').addEventListener('click', () => setPanel(false));
+  $('reopen').addEventListener('click', () => setPanel(true));
+  $('redo1').addEventListener('click', () => { G.step = 1; G.pk = {}; G.geo = false; refresh(); });
+  $('redo2').addEventListener('click', () => { if (G.step < 2) return; G.step = 2; G.pk = { aligned: G.pk.aligned }; G.geo = false; refresh(); });
+  $('done').addEventListener('click', () => {
+    if (!G.survey.length || !G.drawing) return toast('Load a survey and draw something first');
+    pushUndo(); G.geo = true; G.step = 3; save();
+    setPanel(false);   // done: get the steps out of the way
+    refresh();
+    toast('Georeferenced. Export when you are ready.');
+  });
+  $('replace').addEventListener('click', () => {
+    pushUndo(); G.geo = false; G.step = 1; G.pk = {}; G.flip = false; G.T = { a: 0, e: 0, n: 0 };
+    placeDrawing(); fitView(); save(); refresh();
+  });
+
+  // ---------- pointer input on the canvas: tap picks, drag pans, pinch zooms ----------
+  const ptrs = new Map();
+  let drag = null, pinch = null;
+  const local = e => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+  cv.addEventListener('pointerdown', e => {
+    cv.setPointerCapture(e.pointerId);
+    ptrs.set(e.pointerId, local(e));
+    if (ptrs.size === 2) {
+      const [a, b] = [...ptrs.values()];
+      pinch = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, k0: G.view.k, w: toW({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }) };
+      drag = null;
+    } else if (ptrs.size === 1) drag = { id: e.pointerId, start: local(e), last: local(e), moved: false };
+  });
+  cv.addEventListener('pointermove', e => {
+    if (!ptrs.has(e.pointerId)) return;
+    const p = local(e); ptrs.set(e.pointerId, p);
+    if (pinch && ptrs.size >= 2) {
+      const [a, b] = [...ptrs.values()], m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      G.view.k = Math.max(0.01, Math.min(5000, pinch.k0 * Math.hypot(a.x - b.x, a.y - b.y) / pinch.d0));
+      G.view.cx = pinch.w.e - (m.x - W / 2) / G.view.k; G.view.cy = pinch.w.n + (m.y - H / 2) / G.view.k;
+      render();
+    } else if (drag && e.pointerId === drag.id) {
+      if (!drag.moved && Math.hypot(p.x - drag.start.x, p.y - drag.start.y) > 8) drag.moved = true;
+      if (drag.moved) { G.view.cx -= (p.x - drag.last.x) / G.view.k; G.view.cy += (p.y - drag.last.y) / G.view.k; render(); }
+      drag.last = p;
+    }
+  });
+  const endPtr = e => {
+    ptrs.delete(e.pointerId);
+    if (pinch) { if (ptrs.size < 2) pinch = null; drag = null; save(); return; }
+    if (drag && e.pointerId === drag.id) { if (!drag.moved && e.type === 'pointerup') tapGeo(drag.start); else save(); drag = null; }
+  };
+  cv.addEventListener('pointerup', endPtr);
+  cv.addEventListener('pointercancel', endPtr);
+  cv.addEventListener('wheel', e => { e.preventDefault(); zoomAt(local(e), Math.exp(-e.deltaY * 0.0015)); }, { passive: false });
+
+  // ---------- panels ----------
+  function stepText() {
+    const pk = G.pk;
+    const t1 = G.step > 1 ? `Aligned${G.flip ? ' (flipped)' : ''}.` : pk.dEdge ? 'Now tap the surveyed line that edge runs along.' : 'Tap an edge of your drawing, then the surveyed line it runs along.';
+    const t2 = G.step > 2 ? 'Positioned.' : G.step < 2 ? 'After aligning: tap a corner of your drawing, then the surveyed point it sits on.' : pk.dPt ? 'Now tap the surveyed point that corner sits on.' : 'Tap a corner of your drawing, then the surveyed point it sits on.';
+    return [t1, t2];
+  }
+  // Once georeferenced, the sketch shows the survey faintly underneath the drawing (shared/CONTRACT.md "background").
+  let lastBg = null;
+  function sendBackground() {
+    let bg = null;
+    if (G.survey.length) {
+      const s = scaleS(), c = Math.cos(G.T.a), si = Math.sin(G.T.a);
+      const toLocal = w => { const x = w.e - G.T.e, y = w.n - G.T.n; return [+((c * x + si * y) / s).toFixed(4), +((-si * x + c * y) / s).toFixed(4)]; };
+      bg = {
+        lines: G.survey.filter(f => f.kind === 'line').map(f => ({ closed: !!f.closed, vertices: f.pts.map(toLocal) })),
+        points: G.survey.filter(f => f.kind === 'point').map(f => [...toLocal(f.pts[0]), f.name || ''])
+      };
+    }
+    const text = JSON.stringify(bg);
+    if (text === lastBg) return;
+    lastBg = text;
+    toSketch({ type: 'background', background: bg });
+  }
+  function refresh() {
+    sendBackground();
+    if (!G.geo && $('panel').hidden) setPanel(true);   // not georeferenced any more: show the steps again
+    const [t1, t2] = stepText();
+    $('s1text').textContent = t1; $('s2text').textContent = t2;
+    const gdeg = (G.T.a * 180 / Math.PI).toFixed(2);
+    $('s0text').textContent = G.gridPick ? 'Tap a survey line. The grid turns the least amount to line up with it, never more than 45°.'
+      : G.refLine ? `Grid lined up with a survey line (turned ${gdeg}°).` : 'Tap the button, then a survey line, to turn the grid to it.';
+    $('gridPickBtn').textContent = G.gridPick ? 'Cancel' : G.refLine ? 'Pick another line' : 'Set from a survey line';
+    $('gridPickBtn').disabled = !hasSurveyLines();
+    $('step0').className = 'step' + (G.gridPick ? ' current' : G.refLine ? ' done' : '');
+    $('step1').className = 'step' + (G.step === 1 ? ' current' : ' done');
+    $('step2').className = 'step' + (G.step === 2 ? ' current' : G.step > 2 ? ' done' : '');
+    $('flip').disabled = G.step < 2;
+    const pv = turnPivot();
+    $('turnText').textContent = pv ? `Turns a quarter turn about ${pv.why}.` : 'Turns the drawing a quarter turn.';
+    $('geoBadge').hidden = !G.geo;
+    const nl = G.survey.filter(f => f.kind === 'line').length;
+    const info = G.survey.length ? `${G.file}: ${G.survey.length - nl} points, ${nl} lines${G.cs ? ' · ' + G.cs : ''}` : 'No survey loaded yet.';
+    $('surveyInfo').textContent = info; $('surveySheetInfo').textContent = info;
+    const deg = ((G.T.a * 180 / Math.PI) % 360 + 360) % 360;
+    $('tStatus').textContent = G.survey.length && G.drawing ? `${G.geo && G.refLine ? 'Grid lined up with a survey line · ' : ''}Rotation ${deg.toFixed(3)}° · origin E ${G.T.e.toFixed(3)} N ${G.T.n.toFixed(3)}` : '';
+    $('gridRef').disabled = !hasSurveyLines();
+    $('gridUnit').value = G.gridUnit;
+    render();
+  }
+
+  const sheets = [$('exportSheet'), $('surveySheet')];
+  const closeSheets = () => sheets.forEach(s => { s.hidden = true; });
+  $('openSurvey').addEventListener('click', () => { const open = $('surveySheet').hidden; closeSheets(); $('surveySheet').hidden = !open; refresh(); });
+  $('surveyClose').addEventListener('click', closeSheets);
+  $('loadSurvey2').addEventListener('click', () => $('file').click());
+  $('pickFile').addEventListener('click', () => $('file').click());
+  $('useSample').addEventListener('click', useSample);
+  $('useSample2').addEventListener('click', useSample);
+  $('file').addEventListener('change', e => { importFiles(e.target.files); e.target.value = ''; closeSheets(); });
+  $('gridUnit').addEventListener('change', e => { G.gridUnit = e.target.value; save(); refresh(); });
+
+  function segPick(id, key) {
+    $(id).addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      G[key] = b.dataset.v;
+      for (const x of $(id).querySelectorAll('button')) x.setAttribute('aria-pressed', String(x === b));
+      save(); exportNote();
+    });
+    for (const x of $(id).querySelectorAll('button')) x.setAttribute('aria-pressed', String(x.dataset.v === G[key]));
+  }
+  segPick('fmt', 'fmt'); segPick('scope', 'scope');
+  function exportNote() {
+    const n = drawLines().length;
+    $('exportNote').textContent = !n ? 'There is nothing drawn yet.'
+      : !G.survey.length ? 'No survey loaded: coordinates will be in local drawing units.'
+      : !G.geo ? 'Not georeferenced yet: the drawing will be exported where it currently sits on the survey.'
+      : `${n} line${n === 1 ? '' : 's'} in grid coordinates${geoOf({ e: G.T.e, n: G.T.n }, G.cs) ? ', with latitude and longitude' : ''}.`;
+    $('outName').placeholder = defaultBase();
+  }
+  $('openExport').addEventListener('click', () => {
+    const open = $('exportSheet').hidden; closeSheets();
+    $('csName').value = G.cs; $('outName').value = G.outName;
+    exportNote();
+    $('exportSheet').hidden = !open;
+  });
+  $('exportCancel').addEventListener('click', closeSheets);
+  $('exportSheet').addEventListener('submit', e => {
+    e.preventDefault();
+    if (!drawLines().length) return toast('There is nothing drawn to export');
+    G.cs = $('csName').value.trim(); G.outName = $('outName').value; save();
+    if (G.fmt === 'dxf') deliver(baseName() + '.dxf', buildDXF()); else deliver(baseName() + '.csv', buildCSV());
+    closeSheets();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && G.gridPick) { G.gridPick = false; refresh(); return; }
+    if (e.key === 'Escape') { if (!sheets.every(s => s.hidden)) closeSheets(); else if (G.pk.dEdge || G.pk.dPt) { G.pk = G.step === 2 ? { aligned: G.pk.aligned } : {}; refresh(); } }
+  });
+
+  // ---------- theme & start ----------
+  const mq = matchMedia('(prefers-color-scheme: dark)');
+  const retheme = () => { readColors(); render(); };
+  mq.addEventListener ? mq.addEventListener('change', retheme) : mq.addListener(retheme);
+  new MutationObserver(retheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  readColors();
+  new ResizeObserver(resize).observe(geoView);
+  showTab(false);
+  refresh();
+  // installed as an app (the PWA build adds a manifest): keep a copy on the phone so it opens and works offline
+  if ('serviceWorker' in navigator && !window.claude && location.protocol === 'https:' && document.querySelector('link[rel="manifest"]')) {
+    navigator.serviceWorker.register('sw.js').catch(() => { /* still works online */ });
+  }
+})();
+</script>

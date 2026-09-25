@@ -1,0 +1,3663 @@
+<meta charset="utf-8">
+<title>Ortho Sketch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;500;600&display=swap">
+<style>
+  /* also served as a plain file (embedded), so it carries its own copy of this reset */
+  [hidden] { display: none !important; }
+  :root {
+    --paper: #eef2f1;
+    --panel: #f8faf9;
+    --ink: #1b2a2f;
+    --muted: #5f6f73;
+    --line: #d3dcda;
+    --grid: #dfe6e4;
+    --grid-major: #cbd6d3;
+    --pencil: #8f9a9c;
+    --shape: #1d4f7a;
+    --shape-fill: rgba(29, 79, 122, 0.07);
+    --layer1: #1d4f7a; --layer2: #7e3f9c; --layer3: #9c4f28; --layer4: #17777e; --layer5: #56701c;
+    --vertex: #d2551c;
+    --analysis: #b0308a;
+    --btn-on: #1d4f7a;
+    --btn-on-ink: #ffffff;
+    --focus: #d2551c;
+    --danger: #b3261e;
+    --dimln: #2e7a58;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --paper: #11181a; --panel: #172023; --ink: #dbe5e3; --muted: #8fa0a2;
+      --line: #28353a; --grid: #1a2427; --grid-major: #243236; --pencil: #5d6b6e;
+      --shape: #74b4e3; --shape-fill: rgba(116, 180, 227, 0.08); --vertex: #ff8c52;
+      --layer1: #74b4e3; --layer2: #c894e3; --layer3: #e8a47c; --layer4: #6fd0d6; --layer5: #a9cf6b;
+      --analysis: #e46fc4; --btn-on: #74b4e3; --btn-on-ink: #0d1416; --focus: #ff8c52; --danger: #ff7b6e; --dimln: #6fd1a4;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --paper: #11181a; --panel: #172023; --ink: #dbe5e3; --muted: #8fa0a2;
+    --line: #28353a; --grid: #1a2427; --grid-major: #243236; --pencil: #5d6b6e;
+    --shape: #74b4e3; --shape-fill: rgba(116, 180, 227, 0.08); --vertex: #ff8c52;
+      --layer1: #74b4e3; --layer2: #c894e3; --layer3: #e8a47c; --layer4: #6fd0d6; --layer5: #a9cf6b;
+    --analysis: #e46fc4; --btn-on: #74b4e3; --btn-on-ink: #0d1416; --focus: #ff8c52; --danger: #ff7b6e; --dimln: #6fd1a4;
+  }
+  html, body { height: 100%; overscroll-behavior: none; }
+  /* iPhone/iPad: no text selection, magnifier or callout on press-and-hold, no double-tap zoom on controls */
+  body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+  input, select { -webkit-user-select: text; user-select: text; }
+  button, input, select, label { touch-action: manipulation; }
+  /* iOS zooms the page into any text box whose text is under 16px, so touch screens get 16px */
+  @media (pointer: coarse) { input[type="number"], select { font-size: 16px; } }
+  body {
+    background: var(--paper); color: var(--ink);
+    font-family: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+    display: grid; grid-template-rows: auto 1fr; overflow: hidden;
+  }
+  header {
+    position: relative; z-index: 10;
+    background: var(--panel); border-bottom: 1px solid var(--line);
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px;
+    padding-block: 10px; padding-inline: 16px;
+  }
+  h1 { font-size: 17px; font-weight: 600; margin: 0; letter-spacing: 0.01em; margin-right: 6px; }
+  .group { display: flex; align-items: center; gap: 6px; }
+  .label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
+  }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  button {
+    font: inherit; font-size: 14px; color: var(--ink); background: transparent;
+    border: 0; padding: 6px 11px; cursor: pointer; min-height: 34px;
+  }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button[aria-pressed="true"] { background: var(--btn-on); color: var(--btn-on-ink); }
+  .action { border: 1px solid var(--line); border-radius: 6px; }
+  .action:hover, .seg button:hover { background: var(--line); }
+  .seg button[aria-pressed="true"]:hover { background: var(--btn-on); }
+  input[type="number"], select {
+    font: inherit; font-size: 14px; color: var(--ink); background: var(--paper);
+    border: 1px solid var(--line); border-radius: 6px; height: 34px; padding: 0 8px;
+  }
+  input[type="number"] { width: 64px; font-family: "IBM Plex Mono", ui-monospace, monospace; }
+  .viewctl {
+    position: absolute; top: 12px; right: 16px; display: flex; flex-wrap: wrap; justify-content: flex-end;
+    gap: 6px; max-width: calc(100% - 32px);
+  }
+  .viewctl .seg, .viewctl .action { background: var(--panel); }
+  .ico { width: 22px; height: 22px; display: block; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .viewctl button:has(.ico) { padding: 6px 10px; display: inline-flex; align-items: center; justify-content: center; }
+  #zLabel { min-width: 58px; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 13px; font-variant-numeric: tabular-nums; }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  input[type="range"] { width: 110px; accent-color: var(--shape); }
+  .spacer { flex: 1; }
+  .tolend { font-size: 12px; color: var(--muted); }
+  .tolhelp { display: none; font-size: 12px; color: var(--muted); flex-basis: 100%; }
+  .settings.open .tolhelp { display: block; }   /* spelled out in the phone Settings menu, where there is no hover */
+  .settings { display: contents; }
+  #tSettings { display: none; }
+  #tSettings[aria-expanded="true"] { background: var(--btn-on); color: var(--btn-on-ink); }
+  @media (max-width: 760px) {
+    header { gap: 8px; padding-block: 8px; }
+    h1 { font-size: 15px; }
+    #tSettings { display: inline-block; }
+    .settings {
+      display: none; position: absolute; top: 100%; left: 0; right: 0;
+      background: var(--panel); border-bottom: 1px solid var(--line);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+      padding-block: 12px; padding-inline: 16px; flex-direction: column; align-items: stretch; gap: 12px;
+      max-height: 70vh; overflow-y: auto;
+    }
+    .settings.open { display: flex; }
+    .settings .group { justify-content: space-between; flex-wrap: wrap; }
+  }
+  main { position: relative; min-height: 0; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; display: block; cursor: crosshair; }
+  .selbar {
+    z-index: 6;   /* above the info box */
+    position: absolute; display: flex; flex-wrap: wrap; gap: 2px; padding: 3px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12); max-width: calc(100% - 32px);
+  }
+  .selbar button { border-radius: 5px; min-height: 38px; padding: 6px 10px; white-space: nowrap; }
+  .selbar button:hover { background: var(--line); }
+  .selbar .danger { color: var(--danger); }
+  .selbar .count {
+    align-self: center; padding: 0 8px; color: var(--muted);
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 13px; font-variant-numeric: tabular-nums;
+  }
+  .selbar .sep { width: 1px; background: var(--line); margin: 4px 2px; }
+  .editpop {
+    position: absolute; z-index: 5; display: grid; gap: 8px; padding: 10px 12px;
+    background: var(--panel); border: 1px solid var(--shape); border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.16); max-width: calc(100% - 32px);
+  }
+  .editpop .row { display: flex; align-items: center; gap: 8px; }
+  .editpop .row label { min-width: 48px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+  .editpop input[type="number"] { width: 96px; }
+  .editpop .unit { font-family: "IBM Plex Mono", ui-monospace, monospace; color: var(--muted); font-size: 13px; }
+  .editpop .btns { display: flex; gap: 6px; justify-content: flex-end; }
+  .editpop .primary { background: var(--btn-on); color: var(--btn-on-ink); border-radius: 6px; }
+  .editpop .ghost { border: 1px solid var(--line); border-radius: 6px; }
+  .offbar {
+    position: absolute; top: 60px; right: 16px; z-index: 4; max-width: calc(100% - 32px);
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px;
+    background: var(--panel); border: 1px solid var(--shape); border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14);
+  }
+  .offbar .count, .offbar .unit {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums;
+  }
+  .offbar input[type="number"] { width: 76px; }
+  .offbar .primary { background: var(--btn-on); color: var(--btn-on-ink); border-radius: 6px; }
+  .offbar .ghost { border: 1px solid var(--line); border-radius: 6px; }
+  .pickbar {
+    position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 4;
+    display: flex; align-items: center; gap: 10px; padding: 8px 10px 8px 14px; max-width: calc(100% - 32px);
+    background: var(--panel); border: 1px solid var(--vertex); border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14); font-size: 14px;
+  }
+  .pickbar .ghost { border: 1px solid var(--line); border-radius: 6px; }
+  .divbar {
+    position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 5;
+    display: grid; gap: 8px; padding: 10px 12px; width: max-content; max-width: calc(100% - 32px);
+    background: var(--panel); border: 1px solid var(--vertex); border-radius: 8px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14);
+  }
+  .divbar .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .divbar .grow { flex: 1; }
+  .divbar .count, .divbar .unit { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .divbar #divN { min-width: 64px; text-align: center; color: var(--ink); }
+  .divbar input[type="number"] { width: 80px; }
+  .divbar .primary { background: var(--btn-on); color: var(--btn-on-ink); border-radius: 6px; }
+  .divbar .ghost { border: 1px solid var(--line); border-radius: 6px; min-width: 38px; }
+  .divbar .check { display: flex; align-items: center; gap: 4px; font-size: 14px; }
+  .layico { display: inline-flex; align-items: center; gap: 3px; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 13px; }
+  .layerpanel {
+    position: absolute; top: 62px; right: 16px; z-index: 7; width: min(300px, calc(100% - 32px));
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14); display: grid; gap: 8px;
+  }
+  .lp-head { display: grid; gap: 2px; }
+  .lp-note { font-size: 12px; color: var(--muted); }
+  .lp-row { display: flex; gap: 6px; align-items: center; }
+  .lp-row .lp-pick { flex: 1; text-align: left; border: 1px solid var(--line); border-radius: 6px; }
+  .lp-row .lp-pick[aria-pressed="true"] { background: var(--btn-on); color: var(--btn-on-ink); border-color: var(--btn-on); }
+  .lp-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 8px; vertical-align: -1px; box-shadow: 0 0 0 1.5px var(--panel); }
+  .lp-row .lp-eye { border: 1px solid var(--line); border-radius: 6px; min-width: 64px; }
+  .lp-row .lp-eye[aria-pressed="false"] { color: var(--muted); text-decoration: line-through; }
+  .lp-row.off .lp-pick:not([aria-pressed="true"]) { color: var(--muted); }
+  .readout {
+    position: absolute; left: 16px; bottom: 16px; max-width: min(460px, calc(100% - 32px));
+    background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+    padding: 8px 12px; font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px;
+    line-height: 1.55; color: var(--muted); pointer-events: none;
+    font-variant-numeric: tabular-nums;
+  }
+  .readout strong { color: var(--ink); font-weight: 500; }
+  .toast {
+    position: absolute; left: 50%; top: 58px; transform: translateX(-50%); background: var(--ink); color: var(--paper);
+    padding: 7px 12px; border-radius: 6px; font-size: 13px; opacity: 0; transition: opacity .2s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+  /* ---------- phones: tools in a bottom bar within thumb reach, nothing floating over the drawing ---------- */
+  @media (max-width: 640px) {
+    header h1 { display: none; }
+    header { padding-inline: 10px; }
+    .viewctl {
+      position: fixed; top: auto; left: 0; right: 0; bottom: 0; z-index: 8; max-width: none;
+      background: var(--panel); border-top: 1px solid var(--line);
+      padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+      flex-wrap: nowrap; justify-content: flex-start; gap: 6px; overflow-x: auto; -webkit-overflow-scrolling: touch;
+    }
+    .viewctl .seg, .viewctl .action { flex: none; }
+    .viewctl .seg:has(#zIn) { display: none; }   /* pinch to zoom instead */
+    .viewctl button { min-width: 46px; min-height: 44px; padding: 6px 10px; }
+    main { margin-bottom: calc(58px + env(safe-area-inset-bottom, 0px)); }
+    /* the info box becomes a small line at the top */
+    .readout { top: 8px; bottom: auto; left: 8px; max-width: calc(100% - 16px); font-size: 11px; padding: 4px 8px; line-height: 1.4; }
+    .toast { top: auto; bottom: 12px; }
+    /* selection toolbars dock in one scrollable row just above the tool bar */
+    .selbar {
+      position: fixed; left: 8px !important; right: 8px; top: auto !important; bottom: calc(66px + env(safe-area-inset-bottom, 0px));
+      flex-wrap: nowrap; overflow-x: auto; max-width: none; -webkit-overflow-scrolling: touch;
+    }
+    .selbar button, .selbar .count, .selbar .sep { flex: none; }
+    .layerpanel { top: auto; bottom: 12px; left: 8px; right: 8px; width: auto; }
+    .offbar { top: auto; bottom: 12px; left: 8px; right: 8px; }
+    .divbar { left: 8px; right: 8px; transform: none; width: auto; bottom: 12px; }
+    .pickbar { left: 8px; right: 8px; transform: none; bottom: 12px; }
+  }
+  @media (pointer: coarse) {
+    button { min-height: 42px; }
+    .selbar button { min-height: 44px; }
+  }
+</style>
+
+<header>
+  <h1>Ortho Sketch</h1>
+  <div class="settings" id="settings">
+  <div class="group">
+    <span class="label">Angles</span>
+    <div class="seg" id="angles">
+      <button id="ang45" aria-pressed="true" data-v="45">45° + 90°</button>
+      <button id="ang90" aria-pressed="false" data-v="90">90° only</button>
+      <button id="angOff" aria-pressed="false" data-v="0" title="Keep the angles as drawn">Off</button>
+    </div>
+  </div>
+  <div class="group" hidden>   <!-- kept for the code; snapping always follows the grid (turned to the survey in Site Georef) -->
+    <span class="label">Align to</span>
+    <div class="seg" id="align">
+      <button id="alScreen" aria-pressed="true" data-v="screen">Screen</button>
+      <button id="alEdge" aria-pressed="false" data-v="edge">Drawing</button>
+    </div>
+  </div>
+  <div class="group" title="How much a wobble in your stroke has to bend before it becomes a corner. Toward More: small bends are kept as corners. Toward Fewer: wobbles are smoothed into straight edges.">
+    <label class="label" for="tol">Corners</label>
+    <span class="tolend">More</span>
+    <input type="range" id="tol" min="2" max="12" step="0.5" value="5" aria-describedby="tolHelp">
+    <span class="tolend">Fewer</span>
+    <span class="tolhelp" id="tolHelp">How easily a bend in your stroke becomes a corner</span>
+  </div>
+  <div class="group">
+    <span class="label">Show</span>
+    <div class="seg">
+      <button id="tSketch" aria-pressed="true">Sketch</button>
+      <button id="tDims" aria-pressed="true">Dims</button>
+      <button id="tDebug" aria-pressed="false">Analysis</button>
+      <button id="tBg" aria-pressed="true" title="Show the georeferenced survey underneath the drawing (when this sketch is opened from Site Georef)">Survey</button>
+    </div>
+  </div>
+  <div class="group">
+    <div class="seg"><button id="tPen" aria-pressed="false" title="Fingers move the view instead of drawing, so your palm doesn't draw">Pen only</button></div>
+  </div>
+  <div class="group">
+    <label class="label" for="sqVal">Grid square</label>
+    <input type="number" id="sqVal" value="1" min="0.001" step="any" inputmode="decimal">
+    <select id="sqUnit" aria-label="Unit">
+      <option value="m" selected>m</option>
+      <option value="mm">mm</option>
+      <option value="ft">ft</option>
+      <option value="in">in</option>
+      <option value="units">units</option>
+    </select>
+  </div>
+  <div class="group">
+    <label class="label" for="roundTo">Round to</label>
+    <input type="number" id="roundTo" value="1" min="0" step="any" inputmode="decimal" title="New shapes snap their edges to multiples of this length. 0 turns rounding off.">
+  </div>
+  <div class="group">
+    <span class="label">Snap</span>
+    <div class="seg"><button id="tSnapPts" aria-pressed="true" title="Corners and line ends snap onto existing corners and line ends, when drawing and when moving">To points</button></div>
+  </div>
+    <div class="group">
+      <button class="action" id="merge" title="Combine closed shapes that overlap into one outline">Merge overlapping</button>
+      <button class="action" id="polyAll" title="Turn every set of lines that encloses an area into a polygon">Polygon from lines</button>
+      <button class="action" id="copy">Copy JSON</button>
+    </div>
+  </div>
+  <div class="spacer"></div>
+  <div class="group">
+    <button class="action" id="undo">Undo</button>
+    <button class="action" id="clear">Clear</button>
+    <button class="action" id="tSettings" aria-expanded="false" aria-controls="settings">Settings</button>
+  </div>
+</header>
+
+<main id="stage">
+  <canvas id="cv"></canvas>
+  <div class="viewctl">
+    <div class="seg">
+      <button id="tDraw" aria-pressed="false" title="Sketch shapes, circle to select, scribble to delete (D key). When off, dragging moves the view and taps select." aria-label="Draw"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1.2-4.6L15.6 5l3.4 3.4L8.6 18.8z"/><path d="M13.4 7.2l3.4 3.4"/></svg></button>
+      <button id="tLine" aria-pressed="false" title="Tap corners or grid points one after another to draw lines between them. Tap the first point to close the shape." aria-label="Line"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="18.5" r="2.2"/><circle cx="19" cy="5.5" r="2.2"/><path d="M6.7 16.9L17.3 7.1"/></svg></button>
+      <button id="tTrim" aria-pressed="false" title="Tap or drag across the part of a line to remove, back to where it crosses another line" aria-label="Trim"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6.5" r="2.6"/><circle cx="6" cy="17.5" r="2.6"/><path d="M8.2 8L20 17M8.2 16L20 7"/></svg></button>
+      <button id="tExtend" aria-pressed="false" title="Tap near the end of a line to stretch it to the next line or edge in its path" aria-label="Extend"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h13"/><path d="M13 8.8l3.2 3.2-3.2 3.2"/><path d="M20.5 4.5v15"/></svg></button>
+      <button id="tOffset" aria-pressed="false" title="Pick line segments one at a time, then copy them parallel at a set distance" aria-label="Offset"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M4 18h16" stroke-dasharray="2.6 2.4"/><path d="M12 9.5v5.5M9.8 12.8l2.2 2.2 2.2-2.2"/></svg></button>
+      <button id="tAlign" aria-pressed="false" title="Tap an edge of the shape to move, then the line to line it up with" aria-label="Align"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 20h17"/><path d="M6 6.5h9"/><path d="M10.5 9.5v7"/><path d="M8.2 14.3l2.3 2.3 2.3-2.3"/></svg></button>
+      <button id="tDim" aria-pressed="false" title="Draw across lines or tap two corners for a distance; tap two lines for an angle. Tap any dimension to change it." aria-label="Dim"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5v11M20 6.5v11"/><path d="M4 12h16"/><path d="M7.2 9.4L4.6 12l2.6 2.6M16.8 9.4l2.6 2.6-2.6 2.6"/></svg></button>
+    </div>
+    <div class="seg"><button id="tLayers" aria-expanded="false" aria-controls="layerPanel" title="Layers: choose the layer you draw on, and show or hide layers" aria-label="Layers"><span class="layico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l8.5 4.5L12 13 3.5 8.5z"/><path d="M3.5 12.5L12 17l8.5-4.5"/><path d="M3.5 16.5L12 21l8.5-4.5"/></svg><span id="layerTag">1</span></span></button></div>
+    <div class="seg">
+      <button id="zOut" aria-label="Zoom out">−</button>
+      <button id="zLabel" title="Reset zoom to 100%">100%</button>
+      <button id="zIn" aria-label="Zoom in">+</button>
+    </div>
+    <button class="action" id="zFit" title="Zoom to show every shape" aria-label="Fit"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button>
+  </div>
+  <div class="selbar" id="selbar" hidden role="toolbar" aria-label="Selected shape">
+    <button id="sDup" title="Copy the shape, offset by one grid square">Duplicate</button>
+    <button id="sMove" title="Pick a base point, then where it should go">Move…</button>
+    <button id="sRot" title="Pick the point to rotate about, then drag around it">Rotate…</button>
+    <button id="sStraight" title="Turn the shape the least amount needed to line it up with the grid">Straighten</button>
+    <button id="sFlipH" title="Mirror left to right">Flip ↔</button>
+    <button id="sFlipV" title="Mirror top to bottom">Flip ↕</button>
+    <button id="sPoly" title="Close this line into a polygon">Make polygon</button>
+    <button id="sSeg" title="Tap one of the shape's segments to work on it">Pick segment</button>
+    <button id="sExplode" title="Break into separate straight segments you can trim, extend or move one at a time">Split into segments</button>
+    <button id="sSize" title="Type an exact overall width and height">Set size</button>
+    <button id="sSnap" title="Move so its top-left corner sits on a grid intersection">Snap to grid</button>
+    <span class="sep"></span>
+    <button id="sDel" class="danger" title="Delete the shape (Delete key)">Delete</button>
+  </div>
+  <div class="selbar" id="groupbar" hidden role="toolbar" aria-label="Selected shapes">
+    <span class="count" id="gCount"></span>
+    <button id="gMove" title="Pick a base point, then where it should go">Move…</button>
+    <button id="gRot" title="Pick the point to rotate about, then drag around it">Rotate…</button>
+    <button id="gStraight" title="Turn the shapes the least amount needed to line them up with the grid">Straighten</button>
+    <button id="gMerge" title="Combine the circled shapes that overlap">Merge</button>
+    <button id="gPoly" title="Turn the circled lines into a polygon where they enclose an area">Make polygon</button>
+    <button id="gShape" title="Keep the loop you drew as a new shape instead of a selection">Draw as shape</button>
+    <span class="sep"></span>
+    <button id="gDel" class="danger" title="Delete the circled shapes (Delete key)">Delete</button>
+  </div>
+  <form class="offbar" id="offbar" hidden autocomplete="off">
+    <span class="count" id="offCount">Tap line segments</span>
+    <label class="label" for="offDist">Distance</label>
+    <button type="button" class="ghost" id="offSign" title="Switch between outward (+) and inward (−)">±</button>
+    <input type="number" id="offDist" value="1" step="any" title="Positive goes outward from closed shapes, negative goes inward">
+    <span class="unit" id="offUnit">m</span>
+    <button type="submit" class="primary" id="offApply">Offset</button>
+    <button type="button" class="ghost" id="offClear">Clear picks</button>
+  </form>
+  <div class="pickbar" id="refbar" hidden role="status">
+    <span>Tap a survey line to line the drawing grid up with it</span>
+    <button type="button" class="ghost" id="refSkip">Skip</button>
+  </div>
+  <div class="pickbar" id="linebar" hidden role="status">
+    <span id="lineText">Tap the first point</span>
+    <button type="button" class="ghost" id="lnBack">Back</button>
+    <button type="button" class="ghost" id="lnDone">Finish</button>
+  </div>
+  <div class="pickbar" id="pickbar" hidden role="status">
+    <span id="pickText"></span>
+    <button type="button" class="ghost" id="pickType" hidden>Type angle</button>
+    <button type="button" class="ghost" id="pickCancel">Cancel</button>
+  </div>
+  <div class="selbar" id="vertbar" hidden role="toolbar" aria-label="Selected corner">
+    <span class="count">Drag it to move</span>
+    <button id="vDel" class="danger" title="Delete this corner (Delete key)">Delete corner</button>
+    <button id="vWhole">Whole shape</button>
+  </div>
+  <div class="selbar" id="segbar" hidden role="toolbar" aria-label="Selected segment">
+    <span class="count" id="segInfo"></span>
+    <button id="segDivide">Divide into points…</button>
+    <button id="segBack">Whole shape</button>
+  </div>
+  <form class="divbar" id="divbar" hidden autocomplete="off">
+    <div class="seg" id="divMode">
+      <button type="button" data-v="parts" aria-pressed="true">Equal parts</button>
+      <button type="button" data-v="dist" aria-pressed="false">By distance</button>
+    </div>
+    <div class="row" id="divParts">
+      <button type="button" class="ghost" id="divMinus" aria-label="Fewer parts">−</button>
+      <span class="count" id="divN">2 parts</span>
+      <button type="button" class="ghost" id="divPlus" aria-label="More parts">+</button>
+    </div>
+    <div class="row" id="divDist" hidden>
+      <input type="number" id="divD" value="1" min="0" step="any" aria-label="Distance">
+      <span class="unit" id="divUnit">m</span>
+      <span class="label">from</span>
+      <div class="seg" id="divFrom">
+        <button type="button" data-v="A" aria-pressed="true">End A</button>
+        <button type="button" data-v="B" aria-pressed="false">End B</button>
+      </div>
+      <label class="check"><input type="checkbox" id="divRepeat"> Repeat</label>
+    </div>
+    <div class="row">
+      <span class="count" id="divCount"></span>
+      <span class="grow"></span>
+      <button type="button" class="ghost" id="divCancel">Cancel</button>
+      <button type="submit" class="primary" id="divApply">Add points</button>
+    </div>
+  </form>
+  <div class="layerpanel" id="layerPanel" hidden role="dialog" aria-label="Layers">
+    <div class="lp-head"><span class="label">Layers</span><span class="lp-note">Draw on the highlighted layer. Other layers can't be selected or snapped to.</span></div>
+    <div id="layerRows"></div>
+  </div>
+  <form class="editpop" id="editpop" hidden autocomplete="off"></form>
+  <div class="readout" id="readout"></div>
+  <div class="toast" id="toast"></div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/polygon-clipping@0.15.7/dist/polygon-clipping.umd.min.js"></script>
+<script>
+(() => {
+  const GRID = 40; // px per drawing unit
+  const cv = document.getElementById('cv');
+  let ctx = cv.getContext('2d');   // swapped briefly while faded layers are drawn off-screen
+  const stage = document.getElementById('stage');
+  const readout = document.getElementById('readout');
+
+  const opts = { step: 45, align: 'screen', tol: 5, sketch: true, dims: true, debug: false, penOnly: false, hand: false, trim: false, roundTo: 1, snapW: GRID, snapPoints: true, extend: false, offset: false, draw: false, dim: false, line: false, bg: true, alignTool: false };
+  const editTool = () => opts.trim || opts.extend || opts.offset || opts.dim || opts.alignTool;   // these modes pick lines instead of drawing
+  let annots = [];      // dimension lines: { a: anchor, b: anchor }, anchors point at an edge of a shape by id
+  let shapes = [];
+  // ---------- layers ----------
+  // A shape belongs to one layer. Only the current layer can be touched: selecting, snapping, trimming,
+  // crossings and the rest all work on workShapes(). Other visible layers are drawn faded; hidden ones not at all.
+  const LAYER_COUNT = 5;
+  const layers = Array.from({ length: LAYER_COUNT }, (_, i) => ({ name: `Layer ${i + 1}`, on: true }));
+  let layerNow = 1;
+  const layerOf = sh => sh.layer || layerNow;   // a shape made a moment ago is on the current layer
+  const layerOn = sh => layers[layerOf(sh) - 1] ? layers[layerOf(sh) - 1].on : true;
+  const onWork = sh => layerOf(sh) === layerNow && layerOn(sh);
+  const workShapes = () => shapes.filter(onWork);       // { raw, result, example }
+  let live = null;       // points of stroke in progress
+  let colors = {};
+
+  // ---------- vector helpers ----------
+  const sub = (a, b) => ({ x: a.x - b.x, y: a.y - b.y });
+  const add = (a, b) => ({ x: a.x + b.x, y: a.y + b.y });
+  const mul = (a, s) => ({ x: a.x * s, y: a.y * s });
+  const dot = (a, b) => a.x * b.x + a.y * b.y;
+  const cross = (a, b) => a.x * b.y - a.y * b.x;
+  const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  const norm = a => { const l = Math.hypot(a.x, a.y) || 1; return { x: a.x / l, y: a.y / l }; };
+  const mod = (n, m) => ((n % m) + m) % m;
+
+  // ---------- recognition ----------
+  function resample(pts, s) {
+    const out = [{ x: pts[0].x, y: pts[0].y }];
+    let acc = 0, prev = pts[0];
+    for (let i = 1; i < pts.length; i++) {
+      const cur = pts[i];
+      let d = dist(prev, cur);
+      while (d > 0 && acc + d >= s) {
+        const t = (s - acc) / d;
+        const q = { x: prev.x + t * (cur.x - prev.x), y: prev.y + t * (cur.y - prev.y) };
+        out.push(q); prev = q; d = dist(prev, cur); acc = 0;
+      }
+      acc += d; prev = cur;
+    }
+    const last = pts[pts.length - 1];
+    if (dist(out[out.length - 1], last) > s * 0.3) out.push({ x: last.x, y: last.y });
+    return out;
+  }
+
+  function smooth(pts) {
+    if (pts.length < 5) return pts;
+    return pts.map((p, i) => {
+      if (i === 0 || i === pts.length - 1) return p;
+      const a = pts[i - 1], b = pts[i + 1];
+      return { x: (a.x + 2 * p.x + b.x) / 4, y: (a.y + 2 * p.y + b.y) / 4 };
+    });
+  }
+
+  function perpDist(p, a, b) {
+    const ab = sub(b, a), l = Math.hypot(ab.x, ab.y);
+    if (l < 1e-9) return dist(p, a);
+    return Math.abs(cross(ab, sub(p, a))) / l;
+  }
+
+  function rdp(pts, eps) {
+    const n = pts.length, keep = new Uint8Array(n);
+    keep[0] = keep[n - 1] = 1;
+    const stack = [[0, n - 1]];
+    while (stack.length) {
+      const [a, b] = stack.pop();
+      let best = -1, bd = 0;
+      for (let i = a + 1; i < b; i++) {
+        const d = perpDist(pts[i], pts[a], pts[b]);
+        if (d > bd) { bd = d; best = i; }
+      }
+      if (best > 0 && bd > eps) { keep[best] = 1; stack.push([a, best], [best, b]); }
+    }
+    const idx = [];
+    keep.forEach((k, i) => k && idx.push(i));
+    return idx;
+  }
+
+  function fitLine(seg, dirAngle) {
+    const u = { x: Math.cos(dirAngle), y: Math.sin(dirAngle) };
+    const n = { x: -u.y, y: u.x };
+    // robust offset: rounded corners pull points off the line, so fit around the median
+    const p = seg.pts;
+    const offs = p.map(q => dot(q, n)).sort((a, b) => a - b);
+    const med = offs[Math.floor(offs.length / 2)];
+    const band = Math.max(4, (offs[Math.floor(offs.length * 0.8)] - offs[Math.floor(offs.length * 0.2)]));
+    let off = 0, c = 0;
+    for (const o of offs) if (Math.abs(o - med) <= band) { off += o; c++; }
+    off = c ? off / c : med;
+    // anchor point: the offset line through the mean along-direction position
+    let along = 0; for (const q of p) along += dot(q, u); along /= p.length;
+    return { u, c: add(mul(n, off), mul(u, along)) };
+  }
+
+  function intersect(L1, L2) {
+    const d = cross(L1.u, L2.u);
+    if (Math.abs(d) < 1e-9) return null;
+    const t = cross(sub(L2.c, L1.c), L2.u) / d;
+    return add(L1.c, mul(L1.u, t));
+  }
+  const project = (p, L) => add(L.c, mul(L.u, dot(sub(p, L.c), L.u)));
+
+  // for a stroke that ends near its start, cut the overshoot where the two ends pass closest
+  function trimClosure(pts) {
+    const n = pts.length, w = Math.floor(n * 0.3);
+    let best = Infinity, bi = 0, bj = n - 1;
+    for (let i = 0; i < w; i += 2)
+      for (let j = n - 1; j > n - 1 - w; j -= 2) {
+        const d = dist(pts[i], pts[j]);
+        if (d < best) { best = d; bi = i; bj = j; }
+      }
+    return pts.slice(bi, bj + 1);
+  }
+
+  function recognize(raw, o) {
+    if (raw.length < 2) return null;
+    let pts = smooth(resample(raw, 3));
+    if (pts.length < 2) return null;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const p of pts) { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); }
+    const diag = Math.hypot(maxX - minX, maxY - minY);
+    if (diag < 8) return null;
+
+    const eps = Math.max(6, diag * o.tol / 100);
+    const minLen = Math.max(10, diag * 0.06);
+    let closed = pts.length > 8 && dist(pts[0], pts[pts.length - 1]) < Math.max(24, diag * 0.15);
+    if (closed) pts = trimClosure(pts);
+
+    const breaks = rdp(pts, eps);
+    let segs = [];
+    for (let i = 0; i < breaks.length - 1; i++) {
+      const a = breaks[i], b = breaks[i + 1];
+      const sp = pts.slice(a, b + 1), len = dist(pts[a], pts[b]);
+      let sag = 0; for (const q of sp) sag = Math.max(sag, perpDist(q, pts[a], pts[b]));
+      segs.push({ pts: sp, len, ang: Math.atan2(pts[b].y - pts[a].y, pts[b].x - pts[a].x), bend: len > 0 ? sag / len : 0 });
+    }
+    if (closed && dist(pts[0], pts[pts.length - 1]) > minLen) {
+      // close the gap so the wrap-around edge is represented
+      const a = pts[pts.length - 1], b = pts[0];
+      segs.push({ pts: [a, b], len: dist(a, b), ang: Math.atan2(b.y - a.y, b.x - a.x), gap: true, bend: 0 });
+    }
+
+    const free = !o.step;   // angle snapping off: every edge keeps the direction it was drawn at
+    const step = free ? 0 : o.step * Math.PI / 180;
+    const nDirs = free ? 0 : Math.round(2 * Math.PI / step);
+    let base = 0;
+    if (!free && o.align === 'edge') {
+      // dominant orientation of the drawing: length-weighted circular mean of edge angles
+      const m = nDirs; let C = 0, S = 0;
+      for (const s of segs) if (!s.gap) { C += s.len * Math.cos(m * s.ang); S += s.len * Math.sin(m * s.ang); }
+      base = Math.atan2(S, C) / m;
+    }
+    const snap = s => { s.k = mod(Math.round((s.ang - base) / step), nDirs); };
+    if (free) {
+      // pieces that carry on in nearly the same direction count as one edge
+      const turn = (a, b) => Math.abs(mod(a - b + Math.PI, 2 * Math.PI) - Math.PI);
+      let k = 0;
+      segs.forEach((sg, i) => { if (i && turn(sg.ang, segs[i - 1].ang) > 10 * Math.PI / 180) k++; sg.k = k; });
+      if (closed && segs.length > 1 && turn(segs[0].ang, segs[segs.length - 1].ang) <= 10 * Math.PI / 180) {
+        const lastK = segs[segs.length - 1].k;
+        for (const sg of segs) if (sg.k === lastK) sg.k = 0;
+      }
+    } else segs.forEach(snap);
+
+    // a curved piece that snaps to a diagonal is a rounded corner, not a 45° chamfer
+    if (o.step === 45 && segs.length > 2) {
+      segs = segs.filter((s, i) => {
+        if (s.k % 2 === 0 || s.bend < 0.12) return true;
+        if (!closed && (i === 0 || i === segs.length - 1)) return true;
+        return false;
+      });
+    }
+
+    const merge = (A, B) => ({ pts: A.pts.concat(B.pts), len: A.len + B.len, k: A.k, ang: A.ang, gap: A.gap && B.gap });
+    const mergeRuns = () => {
+      const out = [];
+      for (const s of segs) {
+        const last = out[out.length - 1];
+        if (last && last.k === s.k) out[out.length - 1] = merge(last, s); else out.push(s);
+      }
+      if (closed && out.length > 1 && out[0].k === out[out.length - 1].k) out[0] = merge(out.pop(), out[0]);
+      segs = out;
+    };
+    mergeRuns();
+
+    // drop hesitation marks: tiny segments between real edges
+    for (let guard = 0; guard < 50 && segs.length > 1; guard++) {
+      let si = -1, sl = Infinity;
+      segs.forEach((s, i) => { if (s.len < minLen && s.len < sl) { sl = s.len; si = i; } });
+      if (si < 0) break;
+      segs.splice(si, 1);
+      mergeRuns();
+    }
+
+    const build = (locks, startT, endT, noRound) => {
+      if (closed && segs.length < 3) closed = false;
+      const lines = segs.map(s => fitLine(s, free ? freeAngle(s) : base + s.k * step));
+      if (o.snapW && !noRound && !free) lines.forEach((L, i) => {
+        // move each edge line onto the whole-unit lattice; diagonals pass through lattice points
+        const sp = o.snapW * (o.step === 45 && segs[i].k % 2 === 1 ? Math.SQRT1_2 : 1);
+        const nrm = { x: -L.u.y, y: L.u.x }, off = dot(L.c, nrm);
+        L.c = add(L.c, mul(nrm, Math.round(off / sp) * sp - off));
+      });
+      // point snap: shift a line sideways so it passes through the point it snapped to
+      if (locks) for (const [i, T] of locks) {
+        const L = lines[i], nrm = { x: -L.u.y, y: L.u.x };
+        L.c = add(L.c, mul(nrm, dot(sub(T, L.c), nrm)));
+      }
+      const n = segs.length;
+      const starts = new Array(n), ends = new Array(n);
+      const joins = closed ? n : n - 1;
+      for (let j = 0; j < joins; j++) {
+        const i = j, k = (j + 1) % n;
+        const p = intersect(lines[i], lines[k]);
+        if (p) { ends[i] = p; starts[k] = p; }
+        else { // a 180° reversal: connect with a perpendicular stub
+          const at = segs[i].pts[segs[i].pts.length - 1];
+          ends[i] = project(at, lines[i]); starts[k] = project(at, lines[k]);
+        }
+      }
+      if (!closed) {
+        starts[0] = project(pts[0], lines[0]);
+        ends[n - 1] = project(pts[pts.length - 1], lines[n - 1]);
+        if (o.snapW && !noRound) { // open ends: round the end edges to whole lengths
+          const W = o.snapW, rl = L => Math.max(W, Math.round(L / W) * W);
+          const u0 = lines[0].u, un = lines[n - 1].u;
+          if (n === 1) {
+            const sp = o.step === 45 && segs[0].k % 2 === 1 ? W * Math.SQRT1_2 : W;
+            const a = dot(starts[0], u0);
+            starts[0] = add(starts[0], mul(u0, Math.round(a / sp) * sp - a));
+            ends[0] = add(starts[0], mul(u0, rl(dot(sub(ends[0], starts[0]), u0))));
+          } else {
+            starts[0] = sub(ends[0], mul(u0, rl(dot(sub(ends[0], starts[0]), u0))));
+            ends[n - 1] = add(starts[n - 1], mul(un, rl(dot(sub(ends[n - 1], starts[n - 1]), un))));
+          }
+        }
+        if (startT) starts[0] = project(startT, lines[0]);
+        if (endT) ends[n - 1] = project(endT, lines[n - 1]);
+      }
+      return { lines, starts, ends };
+    };
+
+    let geo = build();
+    // remove edges that came out reversed or vanishingly short after intersection
+    for (let guard = 0; guard < 50 && segs.length > 1; guard++) {
+      let bad = -1, worst = Infinity;
+      segs.forEach((s, i) => {
+        const along = dot(sub(geo.ends[i], geo.starts[i]), geo.lines[i].u);
+        if (along < minLen * 0.35 && along < worst) { worst = along; bad = i; }
+      });
+      if (bad < 0) break;
+      segs.splice(bad, 1);
+      mergeRuns();
+      geo = build();
+    }
+
+    // snap corners and open ends onto nearby existing points, keeping every edge direction
+    if ((o.snapPts && o.snapPts.length) || (o.snapLines && o.snapLines.length)) {
+      const n = segs.length, tolP = 28, tolL = 14;   // points reach further than lines
+      const near = p => { let b = null, bd = tolP; for (const t of o.snapPts || []) { const d = dist(p, t); if (d < bd) { bd = d; b = t; } } return b; };
+      // nearest survey line piece within reach, as a line { u, c }
+      const nearLine = p => {
+        let b = null, bd = tolL;
+        for (const [a, c] of o.snapLines || []) { const d = segDist(p, a, c); if (d < bd) { bd = d; b = { u: norm(sub(c, a)), c: a }; } }
+        return b;
+      };
+      const locks = new Map();
+      const lock = (i, T) => { if (!locks.has(i)) locks.set(i, T); };
+      let startT = null, endT = null;
+      const joins = closed ? n : n - 1;
+      // judge nearness where the corner was actually drawn, before rounding moved it
+      const drawn = o.snapW ? build(null, null, null, true) : geo;
+      const nearAt = (a, b) => near(a) || near(b);
+      for (let j = 0; j < joins; j++) {
+        const T = nearAt(drawn.ends[j], geo.ends[j]);
+        if (T) { lock(j, T); lock((j + 1) % n, T); continue; }
+        // a corner near a survey line: keep the edge that crosses the line most steeply and
+        // slide the other edge sideways so the corner lands on the line
+        const S = nearLine(drawn.ends[j]) || nearLine(geo.ends[j]);
+        if (!S) continue;
+        const i1 = j, i2 = (j + 1) % n, c1 = Math.abs(cross(geo.lines[i1].u, S.u)), c2 = Math.abs(cross(geo.lines[i2].u, S.u));
+        if (Math.max(c1, c2) < 0.2) continue;
+        const keep = c1 >= c2 ? i1 : i2, X = intersect(geo.lines[keep], S);
+        if (!X || dist(X, geo.ends[j]) > tolP * 2) continue;
+        lock(keep, X); lock(keep === i1 ? i2 : i1, X);
+      }
+      // an open end near a survey line slides along its own direction to meet it
+      const endOnLine = (P, P2, L) => {
+        const S = nearLine(P) || nearLine(P2);
+        if (!S || Math.abs(cross(L.u, S.u)) < 0.2) return null;
+        const X = intersect(L, S);
+        return X && dist(X, P2) < tolP * 2 ? X : null;
+      };
+      if (!closed) {
+        startT = nearAt(drawn.starts[0], geo.starts[0]) || endOnLine(drawn.starts[0], geo.starts[0], geo.lines[0]);
+        if (startT) lock(0, startT);
+        endT = nearAt(drawn.ends[n - 1], geo.ends[n - 1]) || endOnLine(drawn.ends[n - 1], geo.ends[n - 1], geo.lines[n - 1]);
+        if (endT) lock(n - 1, endT);
+      }
+      if (locks.size) {
+        const g2 = build(locks, startT, endT);
+        if (segs.every((sg, i) => dot(sub(g2.ends[i], g2.starts[i]), g2.lines[i].u) > 1)) geo = g2;
+      }
+    }
+
+    const verts = [];
+    const pushV = p => { if (!verts.length || dist(verts[verts.length - 1], p) > 0.5) verts.push(p); };
+    segs.forEach((s, i) => { pushV(geo.starts[i]); pushV(geo.ends[i]); });
+    if (closed && verts.length > 1 && dist(verts[0], verts[verts.length - 1]) < 0.5) verts.pop();
+
+    return { verts, closed, breaks: breaks.map(i => pts[i]), resampled: pts };
+  }
+
+  // recognition runs in the screen pixels the stroke was drawn at, so tolerances feel the same at any zoom
+  function recognizeScaled(raw, o, px) {
+    if (!px || px === 1) return recognize(raw, o);
+    const sc = p => ({ x: p.x / px, y: p.y / px });
+    const r = recognize(raw.map(sc), { ...o, snapW: o.snapW / px, snapPts: o.snapPts && o.snapPts.map(sc), snapLines: o.snapLines && o.snapLines.map(([a, b]) => [sc(a), sc(b)]) });
+    if (!r) return r;
+    const S = p => ({ x: p.x * px, y: p.y * px });
+    return { verts: r.verts.map(S), closed: r.closed, breaks: r.breaks.map(S) };
+  }
+  function recognizeAt(raw, o, px) {
+    const r = recognizeScaled(raw, o, px);
+    if (!o.snapW) return r;
+    // if rounding collapsed part of the shape (drawn smaller than the rounding step), keep it unrounded
+    const r0 = recognizeScaled(raw, { ...o, snapW: 0 }, px);
+    if (!r || (r0 && (r.verts.length < r0.verts.length || r.closed !== r0.closed))) return r0;
+    return r;
+  }
+
+  // best-fit direction of a run of points, pointing the way it was drawn
+  function freeAngle(sg) {
+    const p = sg.pts;
+    let mx = 0, my = 0;
+    for (const q of p) { mx += q.x; my += q.y; }
+    mx /= p.length; my /= p.length;
+    let sxx = 0, syy = 0, sxy = 0;
+    for (const q of p) { const dx = q.x - mx, dy = q.y - my; sxx += dx * dx; syy += dy * dy; sxy += dx * dy; }
+    let a = 0.5 * Math.atan2(2 * sxy, sxx - syy);
+    const run = sub(p[p.length - 1], p[0]);
+    if (Math.cos(a) * run.x + Math.sin(a) * run.y < 0) a += Math.PI;
+    return a;
+  }
+
+  // corners: angle between the two edges meeting at each vertex
+  function corners(res) {
+    const v = res.verts, n = v.length, out = [];
+    for (let i = 0; i < n; i++) {
+      if (!res.closed && (i === 0 || i === n - 1)) continue;
+      const p = v[i], a = v[mod(i - 1, n)], b = v[(i + 1) % n];
+      const ua = norm(sub(a, p)), ub = norm(sub(b, p));
+      // exact: the true angle; deg: rounded, only for deciding how to draw it
+      const exact = Math.acos(Math.max(-1, Math.min(1, dot(ua, ub)))) * 180 / Math.PI;
+      out.push({ p, ua, ub, deg: Math.round(exact), exact, i });
+    }
+    return out;
+  }
+
+  // ---------- view & units ----------
+  const view = { x: 0, y: 0, s: 1 };
+  const toScreen = p => ({ x: p.x * view.s + view.x, y: p.y * view.s + view.y });
+  const toWorld = p => ({ x: (p.x - view.x) / view.s, y: (p.y - view.y) / view.s });
+  const sq = { val: 1, unit: 'm' };
+  const unitSuffix = () => (sq.unit === 'units' ? ' u' : ' ' + sq.unit);
+  const fmtNum = v => { const a = Math.abs(v); if (Math.abs(v - Math.round(v)) < 1e-6) return String(Math.round(v)); return a >= 100 ? v.toFixed(0) : a >= 10 ? v.toFixed(1) : v.toFixed(2); };
+  const fmtLen = worldPx => fmtNum(worldPx / GRID * sq.val) + unitSuffix();
+  let cssW = 0, cssH = 0;
+
+  // ---------- drawing ----------
+  function readColors() {
+    const cs = getComputedStyle(document.documentElement);
+    for (const k of ['paper', 'ink', 'muted', 'line', 'grid', 'grid-major', 'pencil', 'shape', 'shape-fill', 'vertex', 'analysis', 'panel', 'dimln', 'layer1', 'layer2', 'layer3', 'layer4', 'layer5'])
+      colors[k] = cs.getPropertyValue('--' + k).trim();
+  }
+
+  function resize() {
+    const r = stage.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    cssW = r.width; cssH = r.height;
+    cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+
+  function drawGrid(w, h) {
+    const u = GRID * view.s; // screen px per grid square
+    const steps = [0.25, 0.5, 1, 2, 5, 10, 25, 50, 100, 250, 500, 1000];
+    const m = steps.find(k => k * u >= 14) || 1000;
+    const M = m < 1 ? 1 : m * 5;
+    const isMajor = v => Math.abs(v / M - Math.round(v / M)) < 1e-6;
+    const stepW = m * GRID;
+    ctx.lineWidth = 1;
+    const x0 = Math.floor(-view.x / view.s / stepW), x1 = Math.ceil((w - view.x) / view.s / stepW);
+    for (let i = x0; i <= x1; i++) {
+      const sx = Math.round(i * stepW * view.s + view.x) + 0.5;
+      ctx.strokeStyle = isMajor(i * m) ? colors['grid-major'] : colors.grid;
+      ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx, h); ctx.stroke();
+    }
+    const y0 = Math.floor(-view.y / view.s / stepW), y1 = Math.ceil((h - view.y) / view.s / stepW);
+    for (let i = y0; i <= y1; i++) {
+      const sy = Math.round(i * stepW * view.s + view.y) + 0.5;
+      ctx.strokeStyle = isMajor(i * m) ? colors['grid-major'] : colors.grid;
+      ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(w, sy); ctx.stroke();
+    }
+  }
+
+  function strokePath(pts) {
+    ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  }
+
+  function label(text, x, y, color, bg) {
+    ctx.font = '500 11px "IBM Plex Mono", ui-monospace, monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const w = ctx.measureText(text).width + 8;
+    ctx.fillStyle = bg || colors.paper; ctx.globalAlpha = bg ? 1 : 0.85;
+    ctx.fillRect(x - w / 2, y - 8, w, 16);
+    ctx.globalAlpha = 1; ctx.fillStyle = color; ctx.fillText(text, x, y + 0.5);
+    return w;
+  }
+
+  // draws a recognized result whose points are already in screen space
+  let cornerHits = [];   // screen boxes of corner angle labels, for tapping to edit
+  let dimHits = [];   // screen boxes of edge-length labels, for tapping to edit
+  function drawResult(res, ghost, sel, shape) {
+    if (res.verts.length < 2) return;
+    const rings = [res.verts, ...(res.holes || [])];
+    if (sel) {
+      ctx.beginPath();
+      for (const r of rings) { ctx.moveTo(r[0].x, r[0].y); for (let i = 1; i < r.length; i++) ctx.lineTo(r[i].x, r[i].y); if (res.closed) ctx.closePath(); }
+      ctx.strokeStyle = colors.vertex; ctx.globalAlpha = 0.35; ctx.lineWidth = 10; ctx.lineJoin = 'round'; ctx.stroke(); ctx.globalAlpha = 1;
+    }
+    if (res.closed) {
+      ctx.beginPath();
+      for (const r of rings) { ctx.moveTo(r[0].x, r[0].y); for (let i = 1; i < r.length; i++) ctx.lineTo(r[i].x, r[i].y); ctx.closePath(); }
+      if (!ghost) { ctx.fillStyle = colors['shape-fill']; ctx.fill('evenodd'); }
+    } else strokePath(res.verts);
+    ctx.strokeStyle = colors.shape; ctx.lineWidth = ghost ? 1.5 : 2.5; ctx.lineJoin = 'miter';
+    if (ghost) { ctx.setLineDash([6, 4]); ctx.globalAlpha = 0.8; }
+    ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+    rings.forEach((r, ri) => drawDecor({ verts: r, closed: res.closed }, ghost, shape, ri));
+  }
+
+  // each layer draws in its own colour
+  const hexA = (hex, a) => { const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || ''); return m ? `rgba(${parseInt(m[1], 16)}, ${parseInt(m[2], 16)}, ${parseInt(m[3], 16)}, ${a})` : hex; };
+  const layerColor = n => colors['layer' + n] || colors.shape;
+  function drawShape(s, inert) {
+    const base = colors.shape, baseFill = colors['shape-fill'];
+    colors.shape = layerColor(layerOf(s)); colors['shape-fill'] = hexA(colors.shape, 0.08);
+    try { drawShapeIn(s, inert); } finally { colors.shape = base; colors['shape-fill'] = baseFill; }
+  }
+  function drawShapeIn(s, inert) {
+    const res = s.result;
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    if (opts.sketch) for (const raw of (s.raws || [s.raw])) if (raw.length > 1) {
+      ctx.strokeStyle = colors.pencil; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.7;
+      strokePath(raw.map(toScreen)); ctx.stroke(); ctx.globalAlpha = 1;
+    }
+    if (!res) return;
+    if (opts.debug && res.breaks) {
+      const b = res.breaks.map(toScreen);
+      ctx.strokeStyle = colors.analysis; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+      strokePath(b); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = colors.analysis;
+      for (const p of b) { ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI * 2); ctx.fill(); }
+    }
+    drawResult({ verts: res.verts.map(toScreen), holes: (res.holes || []).map(h => h.map(toScreen)), closed: res.closed }, false, !inert && (s === selected || group.includes(s)), inert ? null : s);
+  }
+  // other layers: drawn off-screen, then laid down faded, and never recorded as tappable
+  let fadeCv = null;
+  function drawFaded(list) {
+    if (!list.length) return;
+    if (!fadeCv || fadeCv.width !== cv.width || fadeCv.height !== cv.height) { fadeCv = document.createElement('canvas'); fadeCv.width = cv.width; fadeCv.height = cv.height; }
+    const fctx = fadeCv.getContext('2d'), dpr = cv.width / (cssW || 1), main = ctx;
+    fctx.setTransform(1, 0, 0, 1, 0, 0); fctx.clearRect(0, 0, fadeCv.width, fadeCv.height); fctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx = fctx;
+    try { for (const sh of list) drawShape(sh, true); } finally { ctx = main; }
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 0.35; ctx.drawImage(fadeCv, 0, 0); ctx.restore();
+  }
+
+  function drawDecor(res, ghost, shape, ri) {
+    const v = res.verts;
+    if (!ghost) {
+      ctx.lineWidth = 1.25;
+      for (const c of corners(res)) {
+        if (c.deg === 180) continue;   // a point along a straight edge, not a corner
+        ctx.strokeStyle = colors.vertex;
+        const r = 13;
+        if (Math.abs(c.exact - 90) < 0.05) {   // square marker only for a true right angle
+          const a = add(c.p, mul(c.ua, r * 0.8)), b = add(c.p, mul(c.ub, r * 0.8)), m = add(a, mul(c.ub, r * 0.8));
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(m.x, m.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        } else {
+          const a1 = Math.atan2(c.ua.y, c.ua.x), a2 = Math.atan2(c.ub.y, c.ub.x);
+          const d = mod(a2 - a1 + Math.PI, 2 * Math.PI) - Math.PI;
+          ctx.beginPath(); ctx.arc(c.p.x, c.p.y, r, a1, a1 + d, d < 0); ctx.stroke();
+        }
+        if (opts.dims && Math.hypot(c.ua.x + c.ub.x, c.ua.y + c.ub.y) > 0.05) {
+          const q = add(c.p, mul(norm(add(c.ua, c.ub)), 30));
+          const cw = label(fmtDeg(c.exact), q.x, q.y, colors.vertex);
+          if (shape) cornerHits.push({ x: q.x, y: q.y, w: cw, shape, ri, vi: c.i });
+        }
+      }
+      ctx.fillStyle = colors.paper; ctx.strokeStyle = colors.shape; ctx.lineWidth = 1.5;
+      for (const p of v) { ctx.beginPath(); ctx.arc(p.x, p.y, 3.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+    }
+    // edge lengths, always shown on the live preview so you can see the size you're drawing
+    if (opts.dims || ghost) {
+      const n = v.length, edges = res.closed ? n : n - 1;
+      let area = 0; for (let i = 0; i < n; i++) area += cross(v[i], v[(i + 1) % n]);
+      for (let i = 0; i < edges; i++) {
+        const a = v[i], b = v[(i + 1) % n], L = dist(a, b);
+        if (L < 28) continue;
+        const u = norm(sub(b, a)); let nrm = { x: u.y, y: -u.x };
+        if (res.closed && area < 0) nrm = mul(nrm, -1);
+        const m = add(mul(add(a, b), 0.5), mul(nrm, 14));
+        const lw = label(fmtLen(L / view.s), m.x, m.y, ghost ? colors.shape : colors.muted);
+        if (!ghost && shape) dimHits.push({ x: m.x, y: m.y, w: lw, shape, ri, ei: i });
+      }
+    }
+  }
+
+  const niceNum = x => { const e = Math.pow(10, Math.floor(Math.log10(x))), f = x / e; return (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * e; };
+  const cleanNum = v => String(+v.toPrecision(3));
+
+  function drawScaleBar(w, h) {
+    const realPerPx = sq.val / (GRID * view.s);
+    const len = niceNum(Math.min(140, w * 0.3) * realPerPx), px = len / realPerPx;
+    const x1 = w - 28, x0 = x1 - px, y = h - 36;
+    const boxX = x0 - 14, boxW = px + 28, boxY = y - 26, boxH = 50;
+    ctx.fillStyle = colors.panel; ctx.strokeStyle = colors.line; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(boxX + 0.5, boxY + 0.5, boxW, boxH, 6) : ctx.rect(boxX + 0.5, boxY + 0.5, boxW, boxH);
+    ctx.fill(); ctx.stroke();
+    // alternating bar, like a survey plan
+    const q = px / 4;
+    for (let i = 0; i < 4; i++) {
+      ctx.fillStyle = i % 2 ? colors.panel : colors.ink;
+      ctx.fillRect(x0 + i * q, y, q, 5);
+    }
+    ctx.strokeStyle = colors.ink; ctx.strokeRect(x0 + 0.5, y + 0.5, px, 5);
+    ctx.font = '500 11px "IBM Plex Mono", ui-monospace, monospace'; ctx.fillStyle = colors.ink;
+    ctx.textBaseline = 'alphabetic';
+    ctx.textAlign = 'left'; ctx.fillText('0', x0 - 2, y - 6);
+    ctx.textAlign = 'center'; ctx.fillText(cleanNum(len / 2), x0 + px / 2, y - 6);
+    ctx.textAlign = 'right'; ctx.fillText(cleanNum(len) + unitSuffix(), x1 + 4, y - 6);
+    ctx.fillStyle = colors.muted; ctx.textAlign = 'center';
+    ctx.fillText(`grid square = ${cleanNum(sq.val)}${unitSuffix()}`, x0 + px / 2, y + 19);
+  }
+
+  function drawLive() {
+    if (!live || live.length < 2 || selectGesture) return;
+    if (liveRes) drawResult(liveRes, true);
+    ctx.strokeStyle = editTool() ? colors.vertex : colors.ink; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    if (editTool()) ctx.setLineDash([4, 4]);
+    strokePath(live); ctx.stroke(); ctx.setLineDash([]);
+    if (editTool()) return;
+    if (liveTargets.length || liveSegs.length) {
+      for (const q of [live[0], live[live.length - 1]]) { const w = snapAt(q, liveTargets, liveSegs, 28); if (w) snapCircle(toScreen(w)); }
+    }
+    // overall size tag above the pen tip
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const p of live) { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); }
+    const tip = live[live.length - 1];
+    const text = `${fmtLen((maxX - minX) / view.s)} × ${fmtLen((maxY - minY) / view.s)}`;
+    ctx.font = '500 12px "IBM Plex Mono", ui-monospace, monospace';
+    const tw = ctx.measureText(text).width + 12;
+    const tx = Math.min(cssW - tw / 2 - 8, Math.max(tw / 2 + 8, tip.x)), ty = Math.max(16, tip.y - 40);
+    ctx.fillStyle = colors.ink; ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect(tx - tw / 2, ty - 11, tw, 22, 5) : ctx.rect(tx - tw / 2, ty - 11, tw, 22); ctx.fill();
+    ctx.fillStyle = colors.paper; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, tx, ty + 0.5);
+  }
+
+  function draw() {
+    const w = cssW, h = cssH;
+    ctx.fillStyle = colors.paper; ctx.fillRect(0, 0, w, h);
+    dimHits = []; cornerHits = [];
+    drawGrid(w, h);
+    drawBackground();
+    if (selected && !shapes.includes(selected)) selected = null;
+    group = group.filter(s => shapes.includes(s));
+    if (!group.length) lasso = null;
+    ensureIds();
+    drawFaded(shapes.filter(sh => layerOn(sh) && !onWork(sh)));
+    for (const s of shapes) if (onWork(s)) drawShape(s);
+    ctx.fillStyle = colors.paper; ctx.strokeStyle = colors.shape; ctx.lineWidth = 1.5;
+    for (const c of crossings()) { const q = toScreen(c.p); ctx.beginPath(); ctx.arc(q.x, q.y, 3.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+    drawAnnots();
+    drawEditPreview();
+    drawCornerChoices();
+    drawOffset();
+    drawExtPending();
+    drawAlignPick();
+    drawPick();
+    drawSegment();
+    drawLineTool();
+    document.getElementById('refbar').hidden = !refPick;
+    if (refPick) readout.hidden = true;
+    if (lasso) {
+      ctx.strokeStyle = colors.vertex; ctx.lineWidth = 1.5; ctx.setLineDash([5, 5]); ctx.globalAlpha = 0.7;
+      strokePath(lasso.raw.map(toScreen)); ctx.closePath(); ctx.stroke();
+      ctx.setLineDash([]); ctx.globalAlpha = 1;
+    }
+    drawLive();
+    if (mode === 'move' && snapHit) snapMarker(toScreen(snapHit));
+    if (mode === 'vdrag' && snapHit) snapCircle(toScreen(snapHit));
+    if (vertSel) {   // the selected corner
+      const v = vertPos(vertSel);
+      if (v) {
+        const q = toScreen(v);
+        ctx.save(); ctx.strokeStyle = colors.vertex; ctx.fillStyle = colors.vertex; ctx.lineWidth = 2.5;
+        ctx.globalAlpha = 0.25; ctx.beginPath(); ctx.arc(q.x, q.y, 11, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1; ctx.stroke(); ctx.restore();
+      }
+    }
+    if (hoverSnap && mode === null && (opts.draw || opts.line)) snapCircle(hoverSnap);
+    drawScaleBar(w, h);
+    placeSelBar();
+  }
+
+  // ---------- point snapping ----------
+  // Where lines cross they act as vertices: every crossing between edges (of different shapes,
+  // or non-neighbouring edges of one shape), as an anchor on the first edge so dimensions can hold on to it.
+  function crossings() {
+    ensureIds();
+    const segs = [];
+    for (const sh of workShapes()) {
+      if (!sh.result) continue;
+      [sh.result.verts, ...(sh.result.holes || [])].forEach((r, ri) => {
+        const m = r.length, E = sh.result.closed ? m : m - 1;
+        for (let ei = 0; ei < E; ei++) segs.push({ sh, ri, ei, m, closed: sh.result.closed, a: r[ei], b: r[(ei + 1) % m] });
+      });
+    }
+    const out = [], e = 1e-6;
+    for (let i = 0; i < segs.length; i++) for (let j = i + 1; j < segs.length; j++) {
+      const A = segs[i], B = segs[j];
+      if (A.sh === B.sh && A.ri === B.ri) {
+        const gap = Math.abs(A.ei - B.ei);
+        if (gap <= 1 || (A.closed && gap === A.m - 1)) continue;   // neighbours share a corner already
+      }
+      const x = segInter(A.a, A.b, B.a, B.b);
+      if (!x) continue;
+      const endA = x.t < e || x.t > 1 - e, endB = x.u < e || x.u > 1 - e;
+      if (endA && endB) continue;   // two corners touching: already vertices
+      const p = lerpPt(A.a, A.b, x.t);
+      out.push(endA ? { p, sid: B.sh.id, ri: B.ri, ei: B.ei, t: x.u, sids: [A.sh.id, B.sh.id] }
+                    : { p, sid: A.sh.id, ri: A.ri, ei: A.ei, t: x.t, sids: [A.sh.id, B.sh.id] });
+    }
+    return out;
+  }
+  function snapTargets(exclude) {
+    const out = [];
+    for (const sh of workShapes()) {
+      if (!sh.result || (exclude && exclude.includes(sh))) continue;
+      for (const r of [sh.result.verts, ...(sh.result.holes || [])]) for (const v of r) out.push(v);
+    }
+    const ex = new Set((exclude || []).map(sh => sh.id));
+    for (const c of crossings()) if (!c.sids.some(id => ex.has(id))) out.push(c.p);
+    for (const q of bgPoints()) out.push(q);
+    return out;
+  }
+  // every point a tap can snap to: corners, line ends and crossings
+  // survey points shown in the background (from a host), in world coordinates; snap targets only
+  function bgPoints() {
+    if (!background || !opts.bg) return [];
+    const k = sq.val / GRID, out = [];
+    for (const l of background.lines || []) for (const [x, y] of l.vertices || []) out.push({ x: x / k, y: -y / k });
+    for (const [x, y] of background.points || []) out.push({ x: x / k, y: -y / k });
+    // the middle of every survey line piece
+    for (const [a, b] of bgSegments()) out.push({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+    return out;
+  }
+  // survey line pieces in world coordinates, for snapping onto the lines themselves
+  function bgSegments() {
+    if (!background || !opts.bg) return [];
+    const k = sq.val / GRID, out = [];
+    for (const l of background.lines || []) {
+      const v = (l.vertices || []).map(([x, y]) => ({ x: x / k, y: -y / k })), m = v.length, E = l.closed ? m : m - 1;
+      for (let i = 0; i < E; i++) { const a = v[i], b = v[(i + 1) % m]; if (dist(a, b) > 1e-6) out.push([a, b]); }
+    }
+    return out;
+  }
+  // where a tap or stroke end at screen point sp snaps: a point first, otherwise onto a survey line
+  function snapAt(sp, targets, segments, reach) {
+    let best = null, bd = reach;
+    for (const t of targets) { const d = dist(toScreen(t), sp); if (d < bd) { bd = d; best = t; } }
+    if (best) return best;
+    const w = toWorld(sp);
+    bd = reach * 0.5 / view.s;   // lines only when no point is within reach, and only close up
+    for (const [a, b] of segments) {
+      const ab = sub(b, a), t = Math.max(0, Math.min(1, dot(sub(w, a), ab) / (dot(ab, ab) || 1))), q = add(a, mul(ab, t)), d = dist(w, q);
+      if (d < bd) { bd = d; best = q; }
+    }
+    return best;
+  }
+  // withBg: include the background survey points (for snapping; left out where every point gets drawn)
+  function allPoints(withBg) {
+    const out = withBg ? bgPoints() : [];
+    for (const sh of workShapes()) {
+      if (!sh.result) continue;
+      for (const r of [sh.result.verts, ...(sh.result.holes || [])]) for (const v of r) out.push(v);
+    }
+    for (const c of crossings()) out.push(c.p);
+    return out;
+  }
+  const withSnap = exclude => ({ ...opts, snapPts: opts.snapPoints ? snapTargets(exclude) : null, snapLines: opts.snapPoints ? bgSegments() : null });
+  // where a Draw stroke will snap to: a ring with a dot at the exact point
+  function snapCircle(p) {
+    ctx.save();
+    ctx.setLineDash([]); ctx.strokeStyle = colors.vertex; ctx.fillStyle = colors.vertex;
+    ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(p.x, p.y, 10, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+  // pen or mouse hovering in Draw mode: show where a stroke started here would snap
+  let hoverSnap = null, hoverTargets = null, hoverSegs = null, hoverAt = 0;
+  function updateHoverSnap(sp) {
+    const now = performance.now();
+    if (!hoverTargets || now - hoverAt > 300) {
+      hoverTargets = opts.snapPoints ? snapTargets(null) : [];
+      hoverSegs = opts.snapPoints ? bgSegments() : [];
+      hoverAt = now;
+    }
+    const w = snapAt(sp, hoverTargets, hoverSegs, opts.line ? 30 : 28);
+    const best = w && toScreen(w);
+    const changed = (best && (!hoverSnap || best.x !== hoverSnap.x || best.y !== hoverSnap.y)) || (!best && hoverSnap);
+    hoverSnap = best;
+    if (changed) requestDraw();
+  }
+  function snapMarker(p) {
+    ctx.strokeStyle = colors.vertex; ctx.lineWidth = 2; ctx.setLineDash([]);
+    ctx.strokeRect(p.x - 7, p.y - 7, 14, 14);
+  }
+
+  // ---------- offset tool ----------
+  const offDistInput = document.getElementById('offDist'), offbar = document.getElementById('offbar');
+  // signed distance: positive goes outward from a closed shape, negative inward
+  const offDistW = () => { const v = parseFloat(offDistInput.value); return isFinite(v) && v !== 0 ? v / sq.val * GRID : 0; };
+  // which side counts as positive: outward for closed shapes, the left of the drawing direction for lines
+  function baseSide(r, ri, closed, a, b) {
+    if (!closed) return 1;
+    const u = norm(sub(b, a)), probe = add(mul(add(a, b), 0.5), mul({ x: -u.y, y: u.x }, 0.5));
+    const side = inRing(probe, r) ? -1 : 1;
+    return ri > 0 ? -side : side;   // for a hole, "outward" means into the hole
+  }
+
+  function offsetPick(tapS) {
+    ensureIds();
+    const p = toWorld(tapS), tol = 22 / view.s;
+    let best = null;
+    for (const sh of workShapes()) {
+      if (!sh.result) continue;
+      [sh.result.verts, ...(sh.result.holes || [])].forEach((r, ri) => {
+        const m = r.length, E = sh.result.closed ? m : m - 1;
+        for (let ei = 0; ei < E; ei++) {
+          const a = r[ei], b = r[(ei + 1) % m], d = segDist(p, a, b);
+          if (d < tol && (!best || d < best.d)) best = { d, sid: sh.id, ri, ei, side: baseSide(r, ri, sh.result.closed, a, b) };
+        }
+      });
+    }
+    if (!best) { toast('Tap on a line segment to pick it'); return; }
+    const i = offPicks.findIndex(k => k.sid === best.sid && k.ri === best.ri && k.ei === best.ei);
+    if (i < 0) offPicks.push({ sid: best.sid, ri: best.ri, ei: best.ei, side: best.side });
+    else offPicks.splice(i, 1);   // tapped again: un-pick
+    requestDraw();
+  }
+
+  // offset lines for the picked segments; neighbouring picks on one shape join into one line
+  function offsetResults(dW) {
+    const out = [], byRing = new Map();
+    for (const pk of offPicks) {
+      const k = pk.sid + ':' + pk.ri;
+      if (!byRing.has(k)) byRing.set(k, []);
+      byRing.get(k).push(pk);
+    }
+    const cross2 = (A, B) => {
+      const den = cross(A.u, B.u);
+      if (Math.abs(den) < 1e-9) return null;
+      return add(A.a, mul(A.u, cross(sub(B.a, A.a), B.u) / den));
+    };
+    for (const list of byRing.values()) {
+      const sh = shapes.find(x => x.id === list[0].sid);
+      if (!sh || !sh.result) continue;
+      const r = [sh.result.verts, ...(sh.result.holes || [])][list[0].ri];
+      if (!r) continue;
+      const m = r.length, closed = sh.result.closed, E = closed ? m : m - 1;
+      const sideOf = new Map(list.filter(k => k.ei < E).map(k => [k.ei, k.side]));
+      const lineOf = ei => {
+        const a = r[ei], b = r[(ei + 1) % m], u = norm(sub(b, a)), n = mul({ x: -u.y, y: u.x }, sideOf.get(ei) * dW);
+        return { a: add(a, n), b: add(b, n), u };
+      };
+      const eis = [...sideOf.keys()].sort((x, y) => x - y), runs = [];
+      for (const ei of eis) {
+        const last = runs[runs.length - 1];
+        if (last && last[last.length - 1] === ei - 1 && sideOf.get(ei - 1) === sideOf.get(ei)) last.push(ei); else runs.push([ei]);
+      }
+      if (closed && runs.length > 1) {
+        const f = runs[0], l = runs[runs.length - 1];
+        if (f[0] === 0 && l[l.length - 1] === E - 1 && sideOf.get(0) === sideOf.get(E - 1)) { runs[0] = l.concat(f); runs.pop(); }
+      }
+      for (const run of runs) {
+        const Ls = run.map(lineOf), pts = [];
+        if (closed && run.length === E) { // every edge, same side: a full parallel outline
+          for (let i = 0; i < Ls.length; i++) pts.push(cross2(Ls[(i - 1 + Ls.length) % Ls.length], Ls[i]) || Ls[i].a);
+          out.push({ verts: pts, closed: true });
+          continue;
+        }
+        pts.push(Ls[0].a);
+        for (let i = 1; i < Ls.length; i++) pts.push(cross2(Ls[i - 1], Ls[i]) || Ls[i].a);
+        pts.push(Ls[Ls.length - 1].b);
+        out.push({ verts: pts, closed: false });
+      }
+    }
+    return out;
+  }
+
+  function drawOffset() {
+    offbar.hidden = !opts.offset;
+    if (!opts.offset) return;
+    offPicks = offPicks.filter(k => edgeOf(k));
+    document.getElementById('offCount').textContent = offPicks.length
+      ? `${offPicks.length} segment${offPicks.length === 1 ? '' : 's'}` : 'Tap line segments';
+    document.getElementById('offUnit').textContent = sq.unit === 'units' ? 'u' : sq.unit;
+    document.getElementById('offApply').disabled = !offPicks.length;
+    for (const k of offPicks) {
+      const [a, b] = edgeOf(k).map(toScreen);
+      ctx.strokeStyle = colors.vertex; ctx.globalAlpha = 0.45; ctx.lineWidth = 9; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.globalAlpha = 1;
+      // arrow at the middle pointing to the offset side
+      const sgn = parseFloat(offDistInput.value) < 0 ? -1 : 1;
+      const u = norm(sub(b, a)), n = mul({ x: -u.y, y: u.x }, k.side * sgn), m = mul(add(a, b), 0.5);
+      const tip = add(m, mul(n, 16)), base = add(m, mul(n, 6));
+      ctx.fillStyle = colors.vertex; ctx.beginPath();
+      ctx.moveTo(tip.x, tip.y); ctx.lineTo(base.x + u.x * 6, base.y + u.y * 6); ctx.lineTo(base.x - u.x * 6, base.y - u.y * 6); ctx.closePath(); ctx.fill();
+    }
+    const dW = offDistW();
+    if (dW) for (const res of offsetResults(dW)) {
+      const v = res.verts.map(toScreen);
+      if (v.length < 2) continue;
+      ctx.strokeStyle = colors.shape; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]); ctx.lineCap = 'butt';
+      strokePath(v); if (res.closed) ctx.closePath(); ctx.stroke(); ctx.setLineDash([]);
+    }
+  }
+
+  offbar.addEventListener('submit', e => {
+    e.preventDefault();
+    const dW = offDistW();
+    if (!dW) { toast('Enter a distance other than zero. Negative goes inward.'); return; }
+    if (!offPicks.length) { toast('Tap the line segments to offset first'); return; }
+    const res = offsetResults(dW).filter(r => r.verts.length >= 2);
+    pushHistory();
+    for (const r of res) shapes.push({ raw: [], px: 1, fixed: true, result: { verts: r.verts, closed: r.closed } });
+    toast(`Offset ${offPicks.length} segment${offPicks.length === 1 ? '' : 's'} into ${res.length} line${res.length === 1 ? '' : 's'}`);
+    offPicks = [];
+    updateReadout(); requestDraw();
+  });
+  document.getElementById('offSign').addEventListener('click', () => {
+    const v = parseFloat(offDistInput.value);
+    offDistInput.value = isFinite(v) ? String(-v) : '-1';
+    requestDraw();
+  });
+  document.getElementById('offClear').addEventListener('click', () => { offPicks = []; requestDraw(); });
+  offDistInput.addEventListener('input', () => requestDraw());
+
+  // ---------- segments: pick one, divide it with points ----------
+  let vertSel = null;    // { sid, ri, vi } of the selected corner
+  let vdrag = null;      // dragging the selected corner
+  function vertexAt(tapS, reach) {
+    ensureIds();
+    let best = null, bd = reach;
+    for (const sh of workShapes()) {
+      if (!sh.result) continue;
+      [sh.result.verts, ...(sh.result.holes || [])].forEach((r, ri) => r.forEach((v, vi) => {
+        const d = dist(toScreen(v), tapS);
+        if (d < bd) { bd = d; best = { sid: sh.id, ri, vi }; }
+      }));
+    }
+    return best;
+  }
+  function vertPos(k) {
+    const sh = k && shapes.find(x => x.id === k.sid);
+    const r = sh && sh.result && [sh.result.verts, ...(sh.result.holes || [])][k.ri];
+    return r && r[k.vi] ? r[k.vi] : null;
+  }
+  function deleteVertex() {
+    const k = vertSel, sh = k && shapes.find(x => x.id === k.sid);
+    if (!sh || !sh.result) return;
+    pushHistory();
+    const i = shapes.indexOf(sh), c = JSON.parse(JSON.stringify(sh));
+    shapes[i] = c;
+    const r = [c.result.verts, ...(c.result.holes || [])][k.ri];
+    r.splice(k.vi, 1);
+    let gone = false, holeGone = false;
+    if (k.ri === 0) {
+      if (c.result.closed && r.length < 3) c.result.closed = false;   // two corners left: it's a line now
+      if (r.length < 2) { shapes.splice(i, 1); gone = true; }
+    } else if (r.length < 3) { c.result.holes.splice(k.ri - 1, 1); holeGone = true; }
+    c.fixed = true;
+    // dimensions: the two edges that met at the corner are gone; later edges shift down by one
+    const onIt = an => an.sid === k.sid && (gone || holeGone || (an.ri === k.ri && (an.ei === k.vi || an.ei === k.vi - 1 || (k.vi === 0 && an.ei === r.length))));
+    const shift = an => (an.sid === k.sid && an.ri === k.ri && an.ei > k.vi) ? { ...an, ei: an.ei - 1 } : an;
+    annots = annots.filter(d => !onIt(d.a) && !onIt(d.b)).map(d => ({ ...d, a: shift(d.a), b: shift(d.b) }));
+    vertSel = null; selected = gone ? null : c;
+    toast(gone ? 'Corner deleted; nothing was left of that line' : 'Corner deleted');
+    updateReadout(); requestDraw();
+  }
+  let segSel = null;     // { sid, ri, ei } of the selected segment
+  let divState = null;   // the divide menu: { sid, ri, ei, mode, n, from }
+  const segbar = document.getElementById('segbar'), divbar = document.getElementById('divbar');
+  const divD = document.getElementById('divD'), divRepeat = document.getElementById('divRepeat');
+  function segEnds(k) {
+    const sh = shapes.find(x => x.id === k.sid);
+    if (!sh || !sh.result) return null;
+    const r = [sh.result.verts, ...(sh.result.holes || [])][k.ri];
+    if (!r) return null;
+    const m = r.length, E = sh.result.closed ? m : m - 1;
+    return k.ei < E ? { sh, r, a: r[k.ei], b: r[(k.ei + 1) % m] } : null;
+  }
+  function segAt(tapS, sh, reach) {
+    if (!sh || !sh.result) return null;
+    ensureIds();
+    const p = toWorld(tapS);
+    let best = null, bd = reach / view.s;
+    [sh.result.verts, ...(sh.result.holes || [])].forEach((r, ri) => {
+      const m = r.length, E = sh.result.closed ? m : m - 1;
+      for (let ei = 0; ei < E; ei++) {
+        const d = segDist(p, r[ei], r[(ei + 1) % m]);
+        if (d < bd) { bd = d; best = { sid: sh.id, ri, ei }; }
+      }
+    });
+    return best;
+  }
+  // where the points go, as fractions along the segment from end A to end B
+  function divTs() {
+    const g = divState && segEnds(divState);
+    if (!g) return [];
+    if (divState.mode === 'parts') return Array.from({ length: divState.n - 1 }, (_, i) => (i + 1) / divState.n);
+    const L = dist(g.a, g.b), d = parseFloat(divD.value);
+    if (!(d > 0)) return [];
+    const dw = toWorldLen(d), ts = [];
+    for (let s = dw; s < L - 1e-6 && ts.length < 500; s += dw) { ts.push(s / L); if (!divRepeat.checked) break; }
+    return divState.from === 'A' ? ts : ts.map(t => 1 - t).reverse();
+  }
+  function syncDivide() {
+    if (!divState) return;
+    const parts = divState.mode === 'parts';
+    for (const b of document.querySelectorAll('#divMode button')) b.setAttribute('aria-pressed', String(b.dataset.v === divState.mode));
+    for (const b of document.querySelectorAll('#divFrom button')) b.setAttribute('aria-pressed', String(b.dataset.v === divState.from));
+    document.getElementById('divParts').hidden = !parts;
+    document.getElementById('divDist').hidden = parts;
+    document.getElementById('divN').textContent = `${divState.n} parts`;
+    document.getElementById('divUnit').textContent = sq.unit === 'units' ? 'u' : sq.unit;
+    const n = divTs().length, g = segEnds(divState);
+    const tooLong = !parts && g && parseFloat(divD.value) > 0 && !n;
+    document.getElementById('divCount').textContent = tooLong ? `Longer than the segment (${fmtLen(dist(g.a, g.b))})` : `${n} point${n === 1 ? '' : 's'}`;
+    document.getElementById('divApply').disabled = !n;
+  }
+  function openDivide() {
+    if (!segSel) return;
+    divState = { ...segSel, mode: divState ? divState.mode : 'parts', n: 2, from: 'A' };
+    syncDivide(); requestDraw();
+  }
+  // in distance mode, tapping near an end chooses it
+  function divTap(tapS) {
+    const g = segEnds(divState);
+    if (!g || divState.mode !== 'dist') return;
+    const da = dist(tapS, toScreen(g.a)), db = dist(tapS, toScreen(g.b));
+    if (Math.min(da, db) > 60) return;
+    divState.from = da <= db ? 'A' : 'B';
+    syncDivide(); requestDraw();
+  }
+  function applyDivide() {
+    const ts = divTs(), k = divState;
+    if (!ts.length || !k) return;
+    selected = shapes.find(x => x.id === k.sid);
+    if (!selected) return;
+    editSelected(sh => {
+      const r = [sh.result.verts, ...(sh.result.holes || [])][k.ri], m = r.length;
+      const a = r[k.ei], b = r[(k.ei + 1) % m];
+      r.splice(k.ei + 1, 0, ...ts.map(t => lerpPt(a, b, t)));
+      sh.fixed = true;
+    });
+    // keep dimensions attached: later segments shift along, the divided one maps onto its pieces
+    const bounds = [0, ...ts, 1];
+    const fix = an => {
+      if (an.sid !== k.sid || an.ri !== k.ri) return an;
+      if (an.ei > k.ei) return { ...an, ei: an.ei + ts.length };
+      if (an.ei < k.ei) return an;
+      let j = 0;
+      while (j < bounds.length - 2 && an.t > bounds[j + 1]) j++;
+      return { ...an, ei: k.ei + j, t: (an.t - bounds[j]) / (bounds[j + 1] - bounds[j]) };
+    };
+    annots = annots.map(d => ({ ...d, a: fix(d.a), b: fix(d.b) }));
+    toast(`Added ${ts.length} point${ts.length === 1 ? '' : 's'}`);
+    divState = null; segSel = null;
+    updateReadout(); requestDraw();
+  }
+  function drawSegment() {
+    divbar.hidden = !divState;
+    if (divState) readout.hidden = true;
+    const k = divState || segSel;
+    if (!k) return;
+    const g = segEnds(k);
+    if (!g) { segSel = null; divState = null; divbar.hidden = true; return; }
+    const a = toScreen(g.a), b = toScreen(g.b), u = norm(sub(b, a));
+    ctx.strokeStyle = colors.vertex; ctx.globalAlpha = 0.45; ctx.lineWidth = 9; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.globalAlpha = 1;
+    if (!divState) return;
+    if (divState.mode === 'dist') {
+      label('A', a.x - u.x * 20, a.y - u.y * 20, divState.from === 'A' ? colors.vertex : colors.muted);
+      label('B', b.x + u.x * 20, b.y + u.y * 20, divState.from === 'B' ? colors.vertex : colors.muted);
+    }
+    for (const t of divTs()) {
+      const q = toScreen(lerpPt(g.a, g.b, t));
+      ctx.fillStyle = colors.vertex; ctx.strokeStyle = colors.paper; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(q.x, q.y, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    }
+  }
+  document.getElementById('sSeg').addEventListener('click', () => { if (selected) startPick({ kind: 'segment', targets: [selected] }); });
+  document.getElementById('segDivide').addEventListener('click', openDivide);
+  document.getElementById('segBack').addEventListener('click', () => { segSel = null; requestDraw(); });
+  document.getElementById('divMode').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b || !divState) return;
+    divState.mode = b.dataset.v; syncDivide(); requestDraw();
+  });
+  document.getElementById('divFrom').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b || !divState) return;
+    divState.from = b.dataset.v; syncDivide(); requestDraw();
+  });
+  document.getElementById('divMinus').addEventListener('click', () => { if (divState && divState.n > 2) { divState.n--; syncDivide(); requestDraw(); } });
+  document.getElementById('divPlus').addEventListener('click', () => { if (divState && divState.n < 50) { divState.n++; syncDivide(); requestDraw(); } });
+  divD.addEventListener('input', () => { syncDivide(); requestDraw(); });
+  divRepeat.addEventListener('change', () => { syncDivide(); requestDraw(); });
+  document.getElementById('divCancel').addEventListener('click', () => { divState = null; requestDraw(); });
+  divbar.addEventListener('submit', e => { e.preventDefault(); applyDivide(); });
+
+  // ---------- line tool: tap points to draw lines between them ----------
+  let linePts = [];
+  const linebar = document.getElementById('linebar');
+  function lineTap(t) {
+    const n = linePts.length;
+    // tapping the first point closes the shape; tapping the last point again finishes the line
+    if (n >= 3 && dist(toScreen(linePts[0]), t) < 24) { finishLine(true); return; }
+    if (n >= 2 && dist(toScreen(linePts[n - 1]), t) < 24) { finishLine(false); return; }
+    let q = opts.snapPoints ? snapAt(t, snapTargets(null), bgSegments(), 30) : null;
+    if (q) q = { x: q.x, y: q.y };
+    else {
+      q = toWorld(t);
+      if (opts.snapW) q = { x: Math.round(q.x / opts.snapW) * opts.snapW, y: Math.round(q.y / opts.snapW) * opts.snapW };
+    }
+    if (n && dist(q, linePts[n - 1]) < 1e-6) return;
+    linePts.push(q);
+    requestDraw();
+  }
+  function finishLine(closed) {
+    if (linePts.length < 2) { toast('Tap at least two points'); return; }
+    pushHistory();
+    shapes.push({ raw: [], px: 1, fixed: true, result: { verts: linePts.map(q => ({ x: q.x, y: q.y })), closed } });
+    toast(closed ? 'Shape closed' : 'Line added');
+    linePts = [];
+    updateReadout(); requestDraw();
+  }
+  function drawLineTool() {
+    linebar.hidden = !opts.line;
+    if (!opts.line) return;
+    readout.hidden = true;
+    const n = linePts.length;
+    document.getElementById('lineText').textContent =
+      !n ? 'Tap the first point' : n === 1 ? 'Tap the next point' : n >= 3 ? 'Next point, or tap the first to close' : 'Next point, or tap the last to finish';
+    document.getElementById('lnBack').disabled = !n;
+    document.getElementById('lnDone').disabled = n < 2;
+    // the points you can snap to
+    ctx.strokeStyle = colors.shape; ctx.lineWidth = 1.25; ctx.globalAlpha = 0.6;
+    for (const v of allPoints()) { const q = toScreen(v); ctx.beginPath(); ctx.arc(q.x, q.y, 5, 0, Math.PI * 2); ctx.stroke(); }
+    ctx.globalAlpha = 1;
+    if (!n) return;
+    const sp = linePts.map(toScreen);
+    ctx.strokeStyle = colors.vertex; ctx.lineWidth = 2.5; ctx.lineJoin = 'miter'; ctx.setLineDash([]);
+    if (n > 1) { strokePath(sp); ctx.stroke(); }
+    for (let i = 0; i < n - 1; i++) {
+      const a = sp[i], b = sp[i + 1], L = dist(a, b);
+      if (L < 28) continue;
+      const u = norm(sub(b, a)), m = add(mul(add(a, b), 0.5), mul({ x: u.y, y: -u.x }, 14));
+      label(fmtLen(L / view.s), m.x, m.y, colors.vertex);
+    }
+    sp.forEach((q, i) => {
+      ctx.fillStyle = i === 0 ? colors.vertex : colors.paper; ctx.strokeStyle = colors.vertex; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(q.x, q.y, i === 0 ? 7 : 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    });
+  }
+  document.getElementById('lnBack').addEventListener('click', () => { linePts.pop(); requestDraw(); });
+  document.getElementById('lnDone').addEventListener('click', () => finishLine(false));
+
+  // ---------- dimension lines ----------
+  let nextId = 0;
+  function ensureIds() { for (const s of shapes) { if (!s.id) s.id = ++nextId; if (!s.layer) s.layer = layerNow; } }
+  function edgeOf(a) {
+    const s = shapes.find(x => x.id === a.sid);
+    if (!s || !s.result) return null;
+    const r = [s.result.verts, ...(s.result.holes || [])][a.ri];
+    if (!r) return null;
+    const m = r.length, E = s.result.closed ? m : m - 1;
+    return a.ei < E ? [r[a.ei], r[(a.ei + 1) % m]] : null;
+  }
+  // world end points of a dimension; parallel edges are measured square to each other
+  function dimPoints(d) {
+    const A = edgeOf(d.a), B = edgeOf(d.b);
+    if (!A || !B) return null;
+    const p1 = lerpPt(A[0], A[1], d.a.t);
+    if (d.kind === 'pts') return [p1, lerpPt(B[0], B[1], d.b.t)];
+    if (d.kind === 'ang') return null;
+    const ua = norm(sub(A[1], A[0])), ub = norm(sub(B[1], B[0]));
+    if (Math.abs(cross(ua, ub)) < 1e-3) {
+      const nb = { x: -ub.y, y: ub.x };
+      return [p1, add(p1, mul(nb, dot(sub(B[0], p1), nb)))];
+    }
+    return [p1, lerpPt(B[0], B[1], d.b.t)];
+  }
+  const lerpPt = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+
+  let annotHits = [];
+  const annotWork = d => { const sh = shapes.find(x => x.id === d.a.sid); return !sh || onWork(sh); };
+  function drawAnnots() {
+    annotHits = [];
+    annots = annots.filter(d => (d.kind === 'ang' ? angGeom(d) : dimPoints(d)));
+    for (const d of annots) {
+      const own = shapes.find(x => x.id === d.a.sid);
+      if (own && !layerOn(own)) continue;              // hidden layer
+      const inert = !annotWork(d);
+      ctx.globalAlpha = inert ? 0.35 : 1;
+      if (d.kind === 'ang') { drawAngle(d, inert); ctx.globalAlpha = 1; continue; }
+      const [p1, p2] = dimPoints(d).map(toScreen);
+      const L = dist(p1, p2);
+      if (L < 2) continue;
+      const u = norm(sub(p2, p1)), n = { x: -u.y, y: u.x }, t = norm(add(u, n));
+      ctx.strokeStyle = colors.dimln; ctx.lineWidth = 1.25; ctx.lineCap = 'butt';
+      ctx.beginPath();
+      ctx.moveTo(p1.x - u.x * 6, p1.y - u.y * 6); ctx.lineTo(p2.x + u.x * 6, p2.y + u.y * 6);
+      // architectural tick marks at each end
+      for (const q of [p1, p2]) { ctx.moveTo(q.x - t.x * 6, q.y - t.y * 6); ctx.lineTo(q.x + t.x * 6, q.y + t.y * 6); }
+      ctx.stroke();
+      const m = mul(add(p1, p2), 0.5);
+      const lw = label(fmtLen(L / view.s), m.x, m.y, colors.dimln);
+      if (!inert) annotHits.push({ x: m.x, y: m.y, w: lw, d });
+      ctx.globalAlpha = 1;
+    }
+    if (opts.dim) {
+      // Dim mode: show the corners you can tap, and the first one you picked
+      ctx.strokeStyle = colors.dimln; ctx.lineWidth = 1.25;
+      for (const v of allPoints()) { const q = toScreen(v); ctx.beginPath(); ctx.arc(q.x, q.y, 5, 0, Math.PI * 2); ctx.stroke(); }
+      if (dimPending) {
+        const e = edgeOf(dimPending);
+        if (e && dimPending.edge) { // first line of an angle
+          const a = toScreen(e[0]), b = toScreen(e[1]);
+          ctx.strokeStyle = colors.dimln; ctx.globalAlpha = 0.45; ctx.lineWidth = 9; ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.globalAlpha = 1;
+        } else if (e) snapMarker(toScreen(lerpPt(e[0], e[1], dimPending.t)));
+      }
+    }
+  }
+
+  let dimPending = null;   // Dim mode: first corner of a point-to-point dimension
+  const annotAt = t => [...annotHits].reverse().find(h => Math.abs(t.x - h.x) <= h.w / 2 + 8 && Math.abs(t.y - h.y) <= 14);
+
+  // nearest corner or line end, as an anchor on one of its edges
+  function vertexAnchorAt(tapS, reach) {
+    ensureIds();
+    let best = null, bd = reach;
+    for (const sh of workShapes()) {
+      if (!sh.result) continue;
+      [sh.result.verts, ...(sh.result.holes || [])].forEach((r, ri) => {
+        const m = r.length, E = sh.result.closed ? m : m - 1;
+        r.forEach((v, vi) => {
+          const d = dist(toScreen(v), tapS);
+          if (d < bd) { bd = d; best = vi < E ? { sid: sh.id, ri, ei: vi, t: 0 } : { sid: sh.id, ri, ei: vi - 1, t: 1 }; }
+        });
+      });
+    }
+    for (const c of crossings()) {
+      const d = dist(toScreen(c.p), tapS);
+      if (d < bd) { bd = d; best = { sid: c.sid, ri: c.ri, ei: c.ei, t: c.t }; }
+    }
+    return best;
+  }
+
+  function dimTool(screenPts, len) {
+    if (len > 6) {
+      dimPending = null;
+      if (!tryDimension(screenPts, true)) toast('Draw across at least two lines to dimension them');
+      requestDraw(); return;
+    }
+    const t = screenPts[0], ah = annotAt(t);
+    if (ah) { editAnnot(ah.d); return; }
+    const v = vertexAnchorAt(t, 24);
+    if (!v) {
+      // not near a corner: a line pick, for an angle dimension
+      const e = edgeAnchorAt(t, 22);
+      if (!e) { dimPending = null; toast('Tap a corner, or a line for an angle'); requestDraw(); return; }
+      if (!dimPending || !dimPending.edge) { dimPending = e; requestDraw(); return; }
+      const first = dimPending;
+      dimPending = null;
+      if (first.sid === e.sid && first.ri === e.ri && first.ei === e.ei) { requestDraw(); return; }
+      const d = { kind: 'ang', a: first, b: e };
+      if (!angGeom(d)) { toast('Those lines are parallel. Tap two lines that meet at an angle.'); requestDraw(); return; }
+      pushHistory(); annots.push(d);
+      toast('Angle added'); requestDraw(); return;
+    }
+    if (!dimPending || dimPending.edge) { dimPending = v; requestDraw(); return; }
+    const pa = edgeOf(dimPending), pb = edgeOf(v);
+    if (!pa || !pb || dist(lerpPt(pa[0], pa[1], dimPending.t), lerpPt(pb[0], pb[1], v.t)) < 1e-6) { dimPending = null; requestDraw(); return; }
+    pushHistory();
+    annots.push({ kind: 'pts', a: dimPending, b: v });
+    dimPending = null;
+    toast('Dimension added');
+    requestDraw();
+  }
+
+  // type a new distance: the shapes move (or stretch) so the dimension reads that value
+  // ---------- editing a corner's angle ----------
+  // Open line: the shorter side turns about the corner, so no other angle changes.
+  // Closed shape: the angles must still add up, so one other corner has to compensate.
+  // All the other corners are circled and you tap the one that should change.
+  let cornerEdit = null;   // closed-shape angle edit in progress: { sh, ri, vi, choice, v }
+  function editCorner(h) {
+    const sh = h.shape;
+    if (!shapes.includes(sh) || !sh.result) return;
+    const closed = sh.result.closed;
+    const rings = [sh.result.verts, ...(sh.result.holes || [])], r = rings[h.ri], m = r.length, i = h.vi;
+    const V = r[i], iP = (i - 1 + m) % m, iN = (i + 1) % m;
+    const at = k => r[((k % m) + m) % m];
+    // turning the ray from V towards `far`, away from the ray towards `still`, to angle v
+    const psiFor = (far, still, v) => {
+      const ra = norm(sub(r[still], V)), rb = norm(sub(r[far], V)), phi = Math.atan2(cross(ra, rb), dot(ra, rb));
+      return (phi < 0 ? -1 : 1) * v * Math.PI / 180 - phi;
+    };
+    const current = (() => { const ra = norm(sub(r[iP], V)), rb = norm(sub(r[iN], V)); return Math.acos(Math.max(-1, Math.min(1, dot(ra, rb)))) * 180 / Math.PI; })();
+
+    // closed shape, compensating at corner c: the corners between V and c turn with the edge as one piece;
+    // c moves to where the turned edge meets the unchanged edge beyond it. Tries both ways round.
+    const planClosed = (v, c) => {
+      let best = null;
+      for (const dir of [1, -1]) {
+        const far = dir > 0 ? iN : iP, still = dir > 0 ? iP : iN;
+        const psi = psiFor(far, still, v);
+        if (Math.abs(psi) < 1e-9) return [];
+        const rot = rotAbout(V, psi), moves = [];
+        let k = i + dir, guard = 0;
+        while (((k % m) + m) % m !== c && guard++ < m) { const q = rot(at(k)); moves.push({ idx: ((k % m) + m) % m, x: q.x, y: q.y }); k += dir; }
+        const before = at(c - dir), beforeNew = moves.length ? moves[moves.length - 1] : V;   // the corner just before c
+        const d = sub(rot(r[c]), rot(before)), G = at(c + dir), e = sub(r[c], G), den = cross(d, e);
+        if (Math.abs(den) < 1e-9) continue;
+        const sAlong = cross(sub(G, beforeNew), e) / den, X = add(beforeNew, mul(d, sAlong));
+        const t = dot(sub(X, G), e) / (dot(e, e) || 1);
+        if (sAlong <= 0 || t <= 0) continue;   // it would have to cross over
+        moves.push({ idx: c, x: X.x, y: X.y });
+        const cost = moves.reduce((a, mv) => a + dist(mv, r[mv.idx]), 0);
+        if (!best || cost < best.cost) best = { cost, moves };
+      }
+      return best && best.moves;
+    };
+    const planOpen = v => {
+      if (!(v > 0 && v < 180)) return null;
+      const moving = [];
+      let far, still;
+      if (m - 1 - i <= i) { for (let k = i + 1; k < m; k++) moving.push(k); far = iN; still = iP; }
+      else { for (let k = 0; k < i; k++) moving.push(k); far = iP; still = iN; }
+      const rot = rotAbout(V, psiFor(far, still, v));
+      return moving.map(k => ({ idx: k, ...rot(r[k]) }));
+    };
+    const plan = v => {
+      if (!(v > 0 && v < 180)) return null;
+      return closed ? planClosed(v, st.choice) : planOpen(v);
+    };
+    const place = (pts, moves) => { for (const mv of moves) { pts[mv.idx].x = mv.x; pts[mv.idx].y = mv.y; } };
+    let base = 0;
+    for (let k = 0; k < h.ri; k++) base += rings[k].length;
+    const preview = () => {
+      const moves = plan(st.v);
+      let ghost = null;
+      if (moves && moves.length) { const c = JSON.parse(JSON.stringify(sh)); place([c.result.verts, ...(c.result.holes || [])][h.ri], moves); ghost = c.result; }
+      editPreview = { shape: sh, movedIdx: new Set((moves || []).map(mv => base + mv.idx)), ghost };
+      requestDraw();
+    };
+    // start with the neighbour at the end of the shorter edge
+    const st = { sh, ri: h.ri, vi: i, closed, choice: dist(V, r[iN]) <= dist(V, r[iP]) ? iN : iP, v: current, preview };
+    cornerEdit = st;
+    const Vs = toScreen(V);
+    openEditor(Vs.x, Vs.y, [{ label: 'Angle', value: +current.toFixed(2), unit: '°' }], ([v]) => {
+      if (!(v < 180)) { toast('Enter an angle between 0 and 180°'); return; }
+      st.v = v;
+      const moves = plan(v);
+      if (!moves) { toast("That corner can't take up the change without the shape crossing itself. Try another circled corner."); return; }
+      if (!moves.length) return;
+      group = []; lasso = null; selected = sh;
+      editSelected(c => { place([c.result.verts, ...(c.result.holes || [])][h.ri], moves); c.fixed = true; });
+      updateReadout(); requestDraw();
+    }, ([v]) => { st.v = v; if (cornerEdit === st) preview(); });
+    if (closed) toast('Tap a circled corner to choose which one adjusts');
+  }
+  // while a closed-shape angle is being edited, a tap on another corner makes it the one that adjusts
+  function cornerChoiceTap(t) {
+    const ce = cornerEdit, r = ce && [ce.sh.result.verts, ...(ce.sh.result.holes || [])][ce.ri];
+    if (!r) return;
+    let best = -1, bd = 28;
+    r.forEach((v, k) => { if (k === ce.vi) return; const d = dist(toScreen(v), t); if (d < bd) { bd = d; best = k; } });
+    if (best < 0) return;
+    ce.choice = best;
+    ce.preview();
+  }
+  function drawCornerChoices() {
+    const ce = cornerEdit;
+    if (!ce || !ce.closed || !shapes.includes(ce.sh)) return;
+    const r = [ce.sh.result.verts, ...(ce.sh.result.holes || [])][ce.ri];
+    r.forEach((v, k) => {
+      if (k === ce.vi) return;
+      const q = toScreen(v), chosen = k === ce.choice;
+      ctx.strokeStyle = colors.vertex; ctx.lineWidth = chosen ? 3 : 1.75;
+      ctx.beginPath(); ctx.arc(q.x, q.y, chosen ? 15 : 13, 0, Math.PI * 2);
+      if (chosen) { ctx.fillStyle = colors.vertex; ctx.globalAlpha = 0.25; ctx.fill(); ctx.globalAlpha = 1; }
+      ctx.stroke();
+    });
+  }
+
+  // ---------- angle dimensions ----------
+  // the angle between the two tapped parts of two lines, at the point where the lines meet
+  function angGeom(d) {
+    const A = edgeOf(d.a), B = edgeOf(d.b);
+    if (!A || !B) return null;
+    const ua = sub(A[1], A[0]), ub = sub(B[1], B[0]), den = cross(ua, ub);
+    if (Math.abs(den) < 1e-9 * Math.max(1, dot(ua, ua) * dot(ub, ub))) return null;
+    const X = add(A[0], mul(ua, cross(sub(B[0], A[0]), ub) / den));
+    const side = (E, t) => {
+      const q = lerpPt(E[0], E[1], t);
+      return dist(q, X) > 1e-6 ? q : (dist(E[0], X) > dist(E[1], X) ? E[0] : E[1]);
+    };
+    const ra = norm(sub(side(A, d.a.t), X)), rb = norm(sub(side(B, d.b.t), X));
+    return { X, ra, rb, A, B, phi: Math.atan2(cross(ra, rb), dot(ra, rb)) };   // phi is signed, in screen terms
+  }
+  const fmtDeg = deg => (Math.abs(deg - Math.round(deg)) < 0.05 ? String(Math.round(deg)) : deg.toFixed(1)) + '°';
+  function drawAngle(d, inert) {
+    const g = angGeom(d);
+    if (!g) return;
+    const X = toScreen(g.X), R = 42, a0 = Math.atan2(g.ra.y, g.ra.x);
+    // hidden-line projection: where a line stops short of the vertex, continue it dashed to the vertex
+    ctx.strokeStyle = colors.dimln; ctx.lineWidth = 1; ctx.lineCap = 'butt'; ctx.setLineDash([7, 5]);
+    ctx.beginPath();
+    for (const E of [g.A, g.B]) {
+      const e = sub(E[1], E[0]), t = dot(sub(g.X, E[0]), e) / (dot(e, e) || 1);
+      if (t >= 0 && t <= 1) continue;
+      const from = toScreen(t < 0 ? E[0] : E[1]);
+      ctx.moveTo(from.x, from.y); ctx.lineTo(X.x, X.y);
+    }
+    ctx.stroke(); ctx.setLineDash([]);
+    ctx.strokeStyle = colors.dimln; ctx.lineWidth = 1.25; ctx.setLineDash([]); ctx.lineCap = 'butt';
+    ctx.beginPath();
+    for (const r of [g.ra, g.rb]) { ctx.moveTo(X.x, X.y); ctx.lineTo(X.x + r.x * (R + 10), X.y + r.y * (R + 10)); }
+    ctx.stroke();
+    ctx.beginPath(); ctx.arc(X.x, X.y, R, a0, a0 + g.phi, g.phi < 0); ctx.stroke();
+    const mid = a0 + g.phi / 2, lx = X.x + Math.cos(mid) * (R + 18), ly = X.y + Math.sin(mid) * (R + 18);
+    const lw = label(fmtDeg(Math.abs(g.phi) * 180 / Math.PI), lx, ly, colors.dimln);
+    if (!inert) annotHits.push({ x: lx, y: ly, w: lw, d });
+  }
+  function edgeAnchorAt(tapS, reach) {
+    ensureIds();
+    const p = toWorld(tapS), tol = reach / view.s;
+    let best = null;
+    for (const sh of workShapes()) {
+      if (!sh.result) continue;
+      [sh.result.verts, ...(sh.result.holes || [])].forEach((r, ri) => {
+        const m = r.length, E = sh.result.closed ? m : m - 1;
+        for (let ei = 0; ei < E; ei++) {
+          const a = r[ei], b = r[(ei + 1) % m], d = segDist(p, a, b);
+          if (d < tol && (!best || d < best.d)) {
+            const ab = sub(b, a);
+            best = { d, sid: sh.id, ri, ei, t: Math.max(0, Math.min(1, dot(sub(p, a), ab) / (dot(ab, ab) || 1))) };
+          }
+        }
+      });
+    }
+    return best && { sid: best.sid, ri: best.ri, ei: best.ei, t: best.t, edge: true };
+  }
+  const rotAbout = (c, psi) => {
+    const co = Math.cos(psi), si = Math.sin(psi);
+    return q => ({ x: c.x + (q.x - c.x) * co - (q.y - c.y) * si, y: c.y + (q.x - c.x) * si + (q.y - c.y) * co });
+  };
+  // type a new angle: the second line's shape turns about the meeting point
+  function editAngle(d) {
+    const g = angGeom(d);
+    if (!g) return;
+    const sa = shapes.find(x => x.id === d.a.sid), sb = shapes.find(x => x.id === d.b.sid);
+    if (!sa || !sb) return;
+    if (sa === sb) { toast('Both lines are on one shape. Use Split into segments first to change this angle.'); return; }
+    const sgn = g.phi < 0 ? -1 : 1, Xs = toScreen(g.X);
+    const psiFor = v => (v > 0 && v < 180 ? sgn * v * Math.PI / 180 - g.phi : 0);
+    openEditor(Xs.x, Xs.y, [{ label: 'Angle', value: +(Math.abs(g.phi) * 180 / Math.PI).toFixed(2), unit: '°' }], ([v]) => {
+      if (!(v < 180)) { toast('Enter an angle between 0 and 180°'); return; }
+      const psi = psiFor(v);
+      if (Math.abs(psi) < 1e-9) return;
+      group = []; lasso = null; selected = null;
+      const rot = rotAbout(g.X, psi);
+      editTargets([sb], sh => { mapShape(sh, rot); sh.fixed = true; });
+      updateReadout(); requestDraw();
+    }, ([v]) => {
+      const psi = psiFor(v);
+      let ghost = null;
+      if (Math.abs(psi) > 1e-9) { const c = JSON.parse(JSON.stringify(sb)); mapShape(c, rotAbout(g.X, psi)); ghost = c.result; }
+      editPreview = { shape: sb, whole: true, ghost };
+      requestDraw();
+    });
+  }
+
+  function editAnnot(d) {
+    if (d.kind === 'ang') { editAngle(d); return; }
+    const pp = dimPoints(d);
+    if (!pp) return;
+    const [p1, p2] = pp, L = dist(p1, p2);
+    if (L < 1e-6) return;
+    const u = norm(sub(p2, p1));
+    const sa = shapes.find(x => x.id === d.a.sid), sb = shapes.find(x => x.id === d.b.sid);
+    if (!sa || !sb) return;
+    const m = toScreen(mul(add(p1, p2), 0.5));
+    const deltaFor = v => (v > 0 ? toWorldLen(v) - L : 0);
+    openEditor(m.x, m.y, [{ label: 'Distance', value: toUnitsNum(L) }], ([v]) => {
+      const delta = deltaFor(v);
+      if (Math.abs(delta) < 1e-9) return;
+      group = []; lasso = null;
+      if (sa === sb) {
+        selected = sb;
+        editSelected(sh => {
+          const res = stretchShape(sh, u, dot(p1, u), dot(p2, u), delta);
+          if (res !== 'ok') { toast(stretchMsg[res]); return false; }
+          sh.fixed = true;
+        });
+      } else {
+        selected = null;
+        editTargets([sb], sh => translateShape(sh, mul(u, delta)));
+      }
+      updateReadout(); requestDraw();
+    }, ([v]) => {
+      // show what will move before it moves
+      if (sa === sb) stretchPreview(sa, u, dot(p1, u), dot(p2, u), deltaFor(v));
+      else movePreview(sb, mul(u, deltaFor(v)));
+    });
+  }
+
+  // ---------- "what moves" preview while a value is being typed ----------
+  let editPreview = null;   // { shape, whole?, movedIdx?, ghost? }
+  function stretchPreview(sh, u, lo, hi, delta) {
+    const probe = JSON.parse(JSON.stringify(sh));
+    const before = [probe.result.verts, ...(probe.result.holes || [])].flat().map(q => ({ x: q.x, y: q.y }));
+    stretchShape(probe, u, lo, hi, 1);   // a tiny stretch reveals which corners are on the moving side
+    const after = [probe.result.verts, ...(probe.result.holes || [])].flat();
+    const movedIdx = new Set();
+    after.forEach((q, i) => { if (dist(q, before[i]) > 1e-6) movedIdx.add(i); });
+    let ghost = null;
+    if (Math.abs(delta) > 1e-9) {
+      const g = JSON.parse(JSON.stringify(sh));
+      if (stretchShape(g, u, lo, hi, delta) === 'ok') ghost = g.result;
+    }
+    editPreview = { shape: sh, movedIdx, ghost };
+    requestDraw();
+  }
+  function movePreview(sh, vec) {
+    let ghost = null;
+    if (Math.hypot(vec.x, vec.y) > 1e-9) { const g = JSON.parse(JSON.stringify(sh)); translateShape(g, vec); ghost = g.result; }
+    editPreview = { shape: sh, whole: true, ghost };
+    requestDraw();
+  }
+  function drawEditPreview() {
+    if (!editPreview || !shapes.includes(editPreview.shape) || !editPreview.shape.result) return;
+    const ep = editPreview, res = ep.shape.result, rings = [res.verts, ...(res.holes || [])];
+    ctx.strokeStyle = colors.vertex; ctx.globalAlpha = 0.4; ctx.lineWidth = 10; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    const tagPts = [];
+    if (ep.whole) {
+      for (const r of rings) { strokePath(r.map(toScreen)); if (res.closed) ctx.closePath(); ctx.stroke(); tagPts.push(...r); }
+    } else {
+      let k = 0;
+      for (const r of rings) {
+        const n = r.length, E = res.closed ? n : n - 1;
+        for (let i = 0; i < E; i++) {
+          const j = (i + 1) % n;
+          if (ep.movedIdx.has(k + i) && ep.movedIdx.has(k + j)) {
+            const a = toScreen(r[i]), b = toScreen(r[j]);
+            ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+          }
+        }
+        r.forEach((v, i) => { if (ep.movedIdx.has(k + i)) tagPts.push(v); });
+        k += n;
+      }
+    }
+    ctx.globalAlpha = 1;
+    if (!ep.whole) {
+      ctx.fillStyle = colors.vertex;
+      for (const v of tagPts) { const q = toScreen(v); ctx.beginPath(); ctx.arc(q.x, q.y, 5, 0, Math.PI * 2); ctx.fill(); }
+    }
+    if (ep.ghost) {
+      ctx.strokeStyle = colors.shape; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
+      for (const r of [ep.ghost.verts, ...(ep.ghost.holes || [])]) { strokePath(r.map(toScreen)); if (ep.ghost.closed) ctx.closePath(); ctx.stroke(); }
+      ctx.setLineDash([]);
+    }
+    if (tagPts.length) {
+      const b = bboxOf(tagPts.map(toScreen));
+      label('moves', (b.minX + b.maxX) / 2, Math.max(12, b.minY - 18), colors.vertex);
+    }
+  }
+
+  // a quick straight stroke across two or more lines becomes a dimension between them
+  function tryDimension(screenPts, lenient) {
+    const a = screenPts[0], b = screenPts[screenPts.length - 1], chord = dist(a, b);
+    if (chord < 30) return false;
+    let sag = 0;
+    for (const q of screenPts) sag = Math.max(sag, perpDist(q, a, b));
+    if (sag > Math.max(10, chord * (lenient ? 0.15 : 0.08))) return false;
+    ensureIds();
+    const A = toWorld(a), B = toWorld(b), xs = [];
+    for (const s of workShapes()) {
+      if (!s.result) continue;
+      [s.result.verts, ...(s.result.holes || [])].forEach((r, ri) => {
+        const m = r.length, E = s.result.closed ? m : m - 1;
+        for (let ei = 0; ei < E; ei++) {
+          const x = segInter(A, B, r[ei], r[(ei + 1) % m]);
+          if (x) xs.push({ t: x.t, sid: s.id, ri, ei, et: x.u });
+        }
+      });
+    }
+    if (xs.length < 2) return false;
+    xs.sort((p, q) => p.t - q.t);
+    // it only counts as a dimension if the stroke just overshoots the outer lines
+    const over = Math.max(70, chord * 0.35) / chord;
+    if (!lenient && (xs[0].t > over || 1 - xs[xs.length - 1].t > over)) return false;
+    const hits = xs.filter((x, i) => i === 0 || (x.t - xs[i - 1].t) * chord > 4); // one crossing per corner
+    if (hits.length < 2) return false;
+    pushHistory();
+    for (let i = 0; i < hits.length - 1; i++) {
+      const p = hits[i], q = hits[i + 1];
+      annots.push({ a: { sid: p.sid, ri: p.ri, ei: p.ei, t: p.et }, b: { sid: q.sid, ri: q.ri, ei: q.ei, t: q.et } });
+    }
+    toast(hits.length > 2 ? `Added ${hits.length - 1} dimensions` : 'Dimension added');
+    return true;
+  }
+
+  // ---------- selection toolbar ----------
+  const selbar = document.getElementById('selbar');
+  function shapePoints(s) { return s.result ? s.result.verts : s.raw; }
+  function bboxOf(pts) {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const p of pts) { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); }
+    return { minX, minY, maxX, maxY };
+  }
+  const groupbar = document.getElementById('groupbar');
+  let group = [], lasso = null;
+  let offPicks = [];              // offset tool: { sid, ri, ei, side } per picked segment   // shapes circled with a loop, and the loop itself
+  function placeSelBar() {
+    const idle = !pick && !divState && (mode === null || mode === 'pan' || mode === 'pinch' || mode === 'wait');
+    document.getElementById('sPoly').hidden = !(selected && selected.result && !selected.result.closed);
+    if (vertSel && !vertPos(vertSel)) vertSel = null;
+    placeBar(selbar, idle && selected && !group.length && !segSel && !vertSel ? shapePoints(selected) : null);
+    placeBar(document.getElementById('vertbar'), idle && vertSel ? [vertPos(vertSel)] : null);
+    if (segSel && (!selected || selected.id !== segSel.sid)) segSel = null;   // the segment belongs to the selected shape
+    const sg = segSel && segEnds(segSel);
+    if (segSel && !sg) segSel = null;
+    if (sg) document.getElementById('segInfo').textContent = fmtLen(dist(sg.a, sg.b));
+    placeBar(segbar, idle && sg ? [sg.a, sg.b] : null);
+    if (group.length) document.getElementById('gCount').textContent = `${group.length} selected`;
+    placeBar(groupbar, idle && group.length ? group.flatMap(shapePoints) : null);
+  }
+  function placeBar(bar, pts) {
+    bar.hidden = !pts;
+    if (!pts) return;
+    const b = bboxOf(pts.map(toScreen));
+    const bw = bar.offsetWidth, bh = bar.offsetHeight;
+    let top = b.minY - bh - 18;
+    if (top < 56) top = b.maxY + 18;                       // no room above: go below
+    if (top + bh > cssH - 8) top = Math.max(8, cssH - bh - 8);
+    const left = Math.min(cssW - bw - 16, Math.max(16, (b.minX + b.maxX) / 2 - bw / 2));
+    bar.style.left = left + 'px'; bar.style.top = top + 'px';
+  }
+
+  function deleteGroup() {
+    if (!group.length) return;
+    pushHistory();
+    const n = group.length;
+    shapes = shapes.filter(s => !group.includes(s)); group = []; lasso = null;
+    toast(`Deleted ${n} shape${n === 1 ? '' : 's'}`); updateReadout(); requestDraw();
+  }
+  document.getElementById('gDel').addEventListener('click', deleteGroup);
+  document.getElementById('gMerge').addEventListener('click', () => { const g = group; group = []; lasso = null; mergeShapes(g); });
+  document.getElementById('gShape').addEventListener('click', () => {
+    if (!lasso) return;
+    pushHistory();
+    shapes.push({ raw: lasso.raw, px: lasso.px, result: recognizeAt(lasso.raw, opts, lasso.px) });
+    group = []; lasso = null; updateReadout(); requestDraw();
+  });
+  // every edit works on a copy so Undo restores the original
+  function editSelected(fn) {
+    if (!selected) return;
+    pushHistory();
+    const i = shapes.indexOf(selected), copy = JSON.parse(JSON.stringify(selected));
+    shapes[i] = copy; selected = copy;
+    if (fn(copy) === false) { shapes[i] = history.pop().shapes[i]; selected = shapes[i]; }
+    updateReadout(); requestDraw();
+  }
+  function mapShape(s, f) {
+    const m = arr => { if (arr) for (const q of arr) { const r = f(q); q.x = r.x; q.y = r.y; } };
+    if (s.raw) m(s.raw);
+    if (s.raws) s.raws.forEach(m);
+    if (s.result) { m(s.result.verts); m(s.result.breaks); (s.result.holes || []).forEach(m); }
+  }
+  const centreOf = s => { const b = bboxOf(shapePoints(s)); return { x: (b.minX + b.maxX) / 2, y: (b.minY + b.maxY) / 2 }; };
+  document.getElementById('sDup').addEventListener('click', () => {
+    if (!selected) return;
+    pushHistory();
+    const copy = JSON.parse(JSON.stringify(selected));
+    delete copy.id;
+    translateShape(copy, { x: GRID, y: GRID });
+    shapes.push(copy); selected = copy;
+    toast('Duplicated'); updateReadout(); requestDraw();
+  });
+  // ---------- move & rotate by picked points ----------
+  let pick = null;   // { kind: 'rotate-center' | 'rotate-drag' | 'move-base' | 'move-dest', targets, center?, angle?, base? }
+  let lastAngle = 90;
+  const pickbar = document.getElementById('pickbar');
+  const pickTargets = () => (group.length ? group.slice() : selected ? [selected] : []);
+  const cleanAngle = a => String(+a.toFixed(3));
+  function startPick(p) {
+    pick = p;
+    document.getElementById('pickText').textContent =
+      p.kind === 'segment' ? 'Tap one of the shape\'s segments'
+      : p.kind === 'rotate-center' ? 'Tap the point to rotate about'
+      : p.kind === 'rotate-drag' ? 'Drag around the point to rotate (snaps every 5°)'
+      : p.kind === 'move-base' ? 'Tap the base point to move from'
+      : 'Tap where the base point should go';
+    document.getElementById('pickType').hidden = p.kind !== 'rotate-drag';
+    selbar.hidden = groupbar.hidden = true;
+    updateReadout(); requestDraw();
+  }
+  function endPick() { pick = null; updateReadout(); requestDraw(); }
+  // nearest corner or line end to a tap, within reach; the pick snaps onto it
+  function nearestPoint(tapS, reach) {
+    let best = null, bd = reach;
+    for (const v of allPoints(true)) {
+      const d = dist(toScreen(v), tapS);
+      if (d < bd) { bd = d; best = v; }
+    }
+    return best && { x: best.x, y: best.y };
+  }
+  function editTargets(targets, fn) {
+    targets = targets.filter(t => shapes.includes(t));
+    if (!targets.length) return;
+    pushHistory();
+    const clones = targets.map(t => { const i = shapes.indexOf(t), c = JSON.parse(JSON.stringify(t)); shapes[i] = c; return c; });
+    clones.forEach(fn);
+    if (group.length) group = clones; else selected = clones[0];
+  }
+  function applyRotation(targets, c, deg) {
+    const a = deg * Math.PI / 180, co = Math.cos(a), si = Math.sin(a);
+    // positive angles turn counter-clockwise on screen (screen y points down)
+    const rot = q => ({ x: c.x + (q.x - c.x) * co + (q.y - c.y) * si, y: c.y - (q.x - c.x) * si + (q.y - c.y) * co });
+    editTargets(targets, sh => { mapShape(sh, rot); sh.fixed = true; });
+    if (lasso) lasso.raw = lasso.raw.map(rot);
+    toast(`Rotated ${cleanAngle(deg)}°`);
+    endPick();
+  }
+  function handlePick(tapS) {
+    const k = pick.kind;
+    if (k === 'segment') {
+      const seg = segAt(tapS, pick.targets[0], 30);
+      if (!seg) { toast("Tap one of the shape's segments"); return; }
+      segSel = seg; selected = shapes.find(x => x.id === seg.sid) || selected;
+      endPick(); return;
+    }
+    if (k === 'rotate-center') {
+      // pivot: nearest corner, otherwise the nearest grid point
+      let center = nearestPoint(tapS, 60);
+      if (!center) {
+        const w = toWorld(tapS), g = opts.snapW || GRID;
+        center = { x: Math.round(w.x / g) * g, y: Math.round(w.y / g) * g };
+      }
+      // the longest edge is what lines up with the grid
+      let longest = 0, edgeAng = null;
+      for (const sh of pick.targets) {
+        if (!sh.result) continue;
+        for (const r of [sh.result.verts, ...(sh.result.holes || [])]) {
+          const m = r.length, E = sh.result.closed ? m : m - 1;
+          for (let j = 0; j < E; j++) {
+            const a = r[j], b = r[(j + 1) % m], L = dist(a, b);
+            if (L > longest) { longest = L; edgeAng = Math.atan2(b.y - a.y, b.x - a.x); }
+          }
+        }
+      }
+      startPick({ kind: 'rotate-drag', targets: pick.targets, center, angle: 0, edgeAng });
+    } else if (k === 'move-base') {
+      const b = nearestPoint(tapS, 60) || toWorld(tapS);
+      startPick({ kind: 'move-dest', targets: pick.targets, base: b });
+    } else if (k === 'move-dest') {
+      const onPoint = nearestPoint(tapS, 18);
+      let d = sub(onPoint || toWorld(tapS), pick.base);
+      if (!onPoint && opts.snapW) d = { x: Math.round(d.x / opts.snapW) * opts.snapW, y: Math.round(d.y / opts.snapW) * opts.snapW };
+      editTargets(pick.targets, sh => translateShape(sh, d));
+      if (lasso) translateShape(lasso, d);
+      toast(`Moved ${fmtLen(Math.hypot(d.x, d.y))}`);
+      endPick();
+    }
+  }
+  function askRotate() {
+    const targets = pickTargets();
+    if (targets.length) startPick({ kind: 'rotate-center', targets });
+  }
+  document.getElementById('pickType').addEventListener('click', () => {
+    if (!pick || pick.kind !== 'rotate-drag') return;
+    const p0 = pick, c = toScreen(p0.center);
+    openEditor(c.x, c.y, [{ label: 'Angle', value: lastAngle, unit: '° CCW', signed: true }], ([a]) => {
+      lastAngle = a;
+      if (pick === p0) applyRotation(p0.targets, p0.center, a);
+    });
+  });
+  function askMove() {
+    const targets = pickTargets();
+    if (targets.length) startPick({ kind: 'move-base', targets });
+  }
+  document.getElementById('sRot').addEventListener('click', askRotate);
+  // turn by the smallest angle that lines the longest edge up with the grid, about the middle of the shape(s)
+  function straighten() {
+    const targets = pickTargets();
+    let longest = 0, e0 = null;
+    for (const sh of targets) {
+      if (!sh.result) continue;
+      for (const r of [sh.result.verts, ...(sh.result.holes || [])]) {
+        const m = r.length, E = sh.result.closed ? m : m - 1;
+        for (let j = 0; j < E; j++) {
+          const a = r[j], b = r[(j + 1) % m], L = dist(a, b);
+          if (L > longest) { longest = L; e0 = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI; }
+        }
+      }
+    }
+    if (e0 === null) return;
+    const a = e0 - Math.round(e0 / 90) * 90;   // counter-clockwise turn that makes the edge level or upright
+    if (Math.abs(a) < 0.01) { toast('Already lined up with the grid'); return; }
+    const b = bboxOf(targets.flatMap(shapePoints));
+    applyRotation(targets, { x: (b.minX + b.maxX) / 2, y: (b.minY + b.maxY) / 2 }, a);
+  }
+  document.getElementById('sStraight').addEventListener('click', straighten);
+  document.getElementById('gStraight').addEventListener('click', straighten);
+  document.getElementById('gRot').addEventListener('click', askRotate);
+  document.getElementById('sMove').addEventListener('click', askMove);
+  document.getElementById('gMove').addEventListener('click', askMove);
+  document.getElementById('pickCancel').addEventListener('click', endPick);
+
+  function drawPick() {
+    pickbar.hidden = !pick;
+    readout.hidden = !!pick;
+    if (!pick) return;
+    // show the points a pick can snap to
+    ctx.strokeStyle = colors.vertex; ctx.lineWidth = 1.5;
+    for (const v of allPoints()) { const q = toScreen(v); ctx.beginPath(); ctx.arc(q.x, q.y, 6, 0, Math.PI * 2); ctx.stroke(); }
+    if (pick.kind === 'move-dest') snapMarker(toScreen(pick.base));
+    if (pick.kind === 'rotate-drag') {
+      const c = toScreen(pick.center);
+      ctx.strokeStyle = colors.vertex; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(c.x, c.y, 8, 0, Math.PI * 2);
+      ctx.moveTo(c.x - 14, c.y); ctx.lineTo(c.x + 14, c.y); ctx.moveTo(c.x, c.y - 14); ctx.lineTo(c.x, c.y + 14);
+      ctx.stroke();
+      if (mode === 'rotdrag' && pick.cur) {
+        const deg = pick.angle, a = deg * Math.PI / 180, co = Math.cos(a), si = Math.sin(a), w = pick.center;
+        const rot = q => toScreen({ x: w.x + (q.x - w.x) * co + (q.y - w.y) * si, y: w.y - (q.x - w.x) * si + (q.y - w.y) * co });
+        // preview of the shapes at the current angle
+        ctx.strokeStyle = colors.shape; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
+        for (const sh of pick.targets) {
+          if (!sh.result) continue;
+          for (const r of [sh.result.verts, ...(sh.result.holes || [])]) { strokePath(r.map(rot)); if (sh.result.closed) ctx.closePath(); ctx.stroke(); }
+        }
+        ctx.setLineDash([]);
+        // start arm, current arm and the swept arc
+        const R = Math.max(36, Math.min(90, dist(pick.cur, c)));
+        const a0 = pick.startA, a1 = a0 - a;
+        ctx.strokeStyle = colors.vertex; ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(c.x, c.y); ctx.lineTo(c.x + Math.cos(a0) * R, c.y + Math.sin(a0) * R);
+        ctx.moveTo(c.x, c.y); ctx.lineTo(c.x + Math.cos(a1) * R, c.y + Math.sin(a1) * R);
+        ctx.stroke();
+        if (deg) { ctx.beginPath(); ctx.arc(c.x, c.y, R * 0.7, a0, a1, deg > 0); ctx.stroke(); }
+        const mid = a0 - a / 2;
+        ctx.font = '600 14px "IBM Plex Mono", ui-monospace, monospace';
+        const txt = `${cleanAngle(Math.round(deg * 10) / 10)}°${pick.onGrid ? ' · grid' : ''}`, tw = ctx.measureText(txt).width + 14;
+        const lx = c.x + Math.cos(mid) * (R + 22), ly = c.y + Math.sin(mid) * (R + 22);
+        ctx.fillStyle = colors.vertex; ctx.beginPath();
+        ctx.roundRect ? ctx.roundRect(lx - tw / 2, ly - 12, tw, 24, 6) : ctx.rect(lx - tw / 2, ly - 12, tw, 24); ctx.fill();
+        ctx.fillStyle = colors.paper; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, lx, ly + 0.5);
+      }
+    }
+  }
+  document.getElementById('sFlipH').addEventListener('click', () => editSelected(s => {
+    const c = centreOf(s); mapShape(s, p => ({ x: 2 * c.x - p.x, y: p.y }));
+  }));
+  document.getElementById('sFlipV').addEventListener('click', () => editSelected(s => {
+    const c = centreOf(s); mapShape(s, p => ({ x: p.x, y: 2 * c.y - p.y }));
+  }));
+  document.getElementById('sSnap').addEventListener('click', () => editSelected(s => {
+    const v = shapePoints(s).reduce((a, p) => (p.y + p.x < a.y + a.x ? p : a));
+    translateShape(s, { x: Math.round(v.x / GRID) * GRID - v.x, y: Math.round(v.y / GRID) * GRID - v.y });
+  }));
+  // CAD-style stretch: everything past a cut line moves by delta along u.
+  // The cut is placed where only edges parallel to u cross it, so no corner angle changes.
+  function stretchShape(s, u, lo, hi, delta) {
+    if (Math.abs(delta) < 1e-9) return 'ok';
+    const rings = [s.result.verts, ...(s.result.holes || [])];
+    const pr = p => dot(p, u);
+    const all = rings.flat().map(pr);
+    const inside = [...new Set(all.filter(v => v > lo + 1e-6 && v < hi - 1e-6).map(v => +v.toFixed(6)))].sort((a, b) => a - b);
+    const bps = [lo, ...inside, hi];
+    const cands = [];
+    for (let i = 0; i < bps.length - 1; i++) cands.push((bps[i] + bps[i + 1]) / 2);
+    const mid = (lo + hi) / 2;
+    cands.sort((a, b) => Math.abs(a - mid) - Math.abs(b - mid));
+    let sawAngle = true;
+    for (const c of cands) {
+      let ok = true;
+      for (const r of rings) {
+        for (let i = 0; i < r.length && ok; i++) {
+          const a = r[i], b = r[(i + 1) % r.length];
+          if ((pr(a) - c) * (pr(b) - c) < 0 && Math.abs(cross(norm(sub(b, a)), u)) > 1e-3) ok = false;
+        }
+      }
+      if (!ok) continue;
+      sawAngle = false;
+      const moved = all.filter(v => v > c), still = all.filter(v => v < c);
+      const gapNow = (moved.length ? Math.min(...moved) : Infinity) - (still.length ? Math.max(...still) : -Infinity);
+      if (gapNow + delta <= 1) continue; // would fold the shape over itself
+      const m = arr => { if (arr) for (const q of arr) if (pr(q) > c) { q.x += u.x * delta; q.y += u.y * delta; } };
+      rings.forEach(m); m(s.result.breaks); if (s.raw) m(s.raw); if (s.raws) s.raws.forEach(m);
+      return 'ok';
+    }
+    return sawAngle ? 'angle' : 'short';
+  }
+  const stretchMsg = {
+    angle: "Can't change that length without bending a 45° edge",
+    short: 'Too short: the shape would fold over itself'
+  };
+  const toWorldLen = units => units / sq.val * GRID;
+  const toUnitsNum = worldPx => +(worldPx / GRID * sq.val).toPrecision(6);
+
+  // small popover form for typing values
+  const pop = document.getElementById('editpop');
+  function closeEditor() {
+    pop.hidden = true; pop.innerHTML = '';
+    cornerEdit = null;
+    if (editPreview) { editPreview = null; requestDraw(); }
+  }
+  function openEditor(x, y, fields, onApply, onInput) {
+    pop.innerHTML = '';
+    const inputs = fields.map((f, i) => {
+      const row = document.createElement('div'); row.className = 'row';
+      const lab = document.createElement('label'); lab.htmlFor = 'edit' + i; lab.textContent = f.label;
+      const inp = document.createElement('input');
+      inp.type = 'number'; inp.id = 'edit' + i; inp.step = 'any'; if (!f.signed) inp.min = '0'; inp.inputMode = f.signed ? 'text' : 'decimal'; inp.value = f.value;
+      const un = document.createElement('span'); un.className = 'unit'; un.textContent = f.unit || (sq.unit === 'units' ? 'u' : sq.unit);
+      row.append(lab, inp, un); pop.append(row);
+      return inp;
+    });
+    const btns = document.createElement('div'); btns.className = 'btns';
+    btns.innerHTML = '<button type="button" class="ghost" id="editCancel">Cancel</button><button type="submit" class="primary" id="editApply">Apply</button>';
+    pop.append(btns);
+    pop.hidden = false;
+    const pw = pop.offsetWidth, ph = pop.offsetHeight;
+    pop.style.left = Math.min(cssW - pw - 16, Math.max(16, x - pw / 2)) + 'px';
+    pop.style.top = Math.min(cssH - ph - 16, Math.max(56, y + 16)) + 'px';
+    inputs[0].focus(); inputs[0].select();
+    if (onInput) {
+      const fire = () => onInput(inputs.map(i => parseFloat(i.value)));
+      inputs.forEach(i => i.addEventListener('input', fire));
+      fire();
+    }
+    document.getElementById('editCancel').onclick = closeEditor;
+    pop.onkeydown = e => { if (e.key === 'Escape') { e.preventDefault(); closeEditor(); } };
+    pop.onsubmit = e => {
+      e.preventDefault();
+      const vals = inputs.map(i => parseFloat(i.value));
+      if (vals.some((v, i) => (fields[i].signed ? !isFinite(v) || v === 0 : !(v > 0)))) {
+        toast(fields.some(f => f.signed) ? 'Enter an angle other than zero' : 'Enter a length greater than zero'); return;
+      }
+      closeEditor(); onApply(vals);
+    };
+  }
+
+  function editEdge(hit) {
+    selected = hit.shape;
+    const r = [hit.shape.result.verts, ...(hit.shape.result.holes || [])][hit.ri];
+    const a = r[hit.ei], b = r[(hit.ei + 1) % r.length];
+    const ue = norm(sub(b, a));
+    openEditor(hit.x, hit.y, [{ label: 'Length', value: toUnitsNum(dist(a, b)) }], ([v]) => {
+      editSelected(s => {
+        const rr = [s.result.verts, ...(s.result.holes || [])][hit.ri];
+        const A = rr[hit.ei], B = rr[(hit.ei + 1) % rr.length], u = norm(sub(B, A));
+        const res = stretchShape(s, u, dot(A, u), dot(B, u), toWorldLen(v) - dist(A, B));
+        if (res !== 'ok') { toast(stretchMsg[res]); return false; }
+        s.fixed = true;
+      });
+    }, ([v]) => stretchPreview(hit.shape, ue, dot(a, ue), dot(b, ue), v > 0 ? toWorldLen(v) - dist(a, b) : 0));
+    updateReadout(); requestDraw();
+  }
+
+  document.getElementById('sSize').addEventListener('click', () => {
+    if (!selected || !selected.result) return;
+    const b = bboxOf(selected.result.verts), sb = bboxOf(selected.result.verts.map(toScreen));
+    openEditor((sb.minX + sb.maxX) / 2, sb.maxY, [
+      { label: 'Width', value: toUnitsNum(b.maxX - b.minX) },
+      { label: 'Height', value: toUnitsNum(b.maxY - b.minY) }
+    ], ([w, h]) => {
+      editSelected(s => {
+        const bb = bboxOf(s.result.verts);
+        let res = stretchShape(s, { x: 1, y: 0 }, bb.minX, bb.maxX, toWorldLen(w) - (bb.maxX - bb.minX));
+        if (res === 'ok') res = stretchShape(s, { x: 0, y: 1 }, bb.minY, bb.maxY, toWorldLen(h) - (bb.maxY - bb.minY));
+        if (res !== 'ok') { toast(stretchMsg[res]); return false; }
+        s.fixed = true;
+      });
+    });
+  });
+
+  document.getElementById('sExplode').addEventListener('click', () => {
+    if (!selected || !selected.result) return;
+    const cp = q => ({ x: q.x, y: q.y }), out = [];
+    for (const r of [selected.result.verts, ...(selected.result.holes || [])]) {
+      const m = r.length, E = selected.result.closed ? m : m - 1;
+      for (let i = 0; i < E; i++) out.push([cp(r[i]), cp(r[(i + 1) % m])]);
+    }
+    if (out.length < 2) { toast('This is already a single segment'); return; }
+    pushHistory();
+    shapes.splice(shapes.indexOf(selected), 1, ...out.map(v => ({ raw: [], px: selected.px || 1, fixed: true, result: { verts: v, closed: false } })));
+    selected = null;
+    toast(`Split into ${out.length} segments`);
+    updateReadout(); requestDraw();
+  });
+
+  document.getElementById('vDel').addEventListener('click', deleteVertex);
+  document.getElementById('vWhole').addEventListener('click', () => { vertSel = null; requestDraw(); });
+
+  function deleteSelected() {
+    if (!selected) return;
+    pushHistory(); shapes = shapes.filter(s => s !== selected); selected = null;
+    toast('Deleted 1 shape'); updateReadout(); requestDraw();
+  }
+  document.getElementById('sDel').addEventListener('click', deleteSelected);
+
+  let rafPending = false;
+  function requestDraw() {
+    if (rafPending) return;
+    rafPending = true;
+    requestAnimationFrame(() => {
+      rafPending = false;
+      const lr = live && live.length > 4 && !editTool() ? recognizeAt(live.map(toWorld), { ...opts, snapPts: liveTargets, snapLines: liveSegs }, 1 / view.s) : null;
+      liveRes = lr ? { verts: lr.verts.map(toScreen), closed: lr.closed } : null;
+      draw();
+    });
+  }
+
+  function updateReadout() {
+    if (!layerPanel.hidden) renderLayers();
+    if (typeof notifyChanged === 'function') setTimeout(notifyChanged, 0);
+    const real = shapes.filter(s => s.result);
+    if (selected && !shapes.includes(selected)) selected = null;
+    const g = group.filter(x => shapes.includes(x));
+    if (g.length) {
+      readout.innerHTML = `<strong>${g.length} shape${g.length === 1 ? '' : 's'} circled</strong><br>Hold one to move them together, or use the toolbar.`;
+      return;
+    }
+    const last = selected && selected.result ? selected : real[real.length - 1];
+    const ex = shapes.some(s => s.example);
+    if (!last) { readout.innerHTML = 'Draw a shape anywhere on the grid.'; return; }
+    const r = last.result;
+    const tally = {};
+    for (const c of corners(r)) if (c.deg !== 180) { const k = fmtDeg(c.exact); tally[k] = (tally[k] || 0) + 1; }
+    const cornerText = Object.keys(tally).sort((a, b) => parseFloat(a) - parseFloat(b)).map(d => `${d}×${tally[d]}`).join('  ') || 'none';
+    const edges = r.closed ? r.verts.length : r.verts.length - 1;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const p of r.verts) { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); }
+    readout.innerHTML =
+      (ex ? 'Example shapes are loaded. Press <strong>Clear</strong> to start with an empty sheet.<br>' : '') +
+      `<strong>${last === selected ? 'Selected · ' : ''}${r.closed ? 'Closed' : 'Open'}</strong> · ${edges} edge${edges === 1 ? '' : 's'} · ${fmtLen(maxX - minX)} × ${fmtLen(maxY - minY)}<br>` +
+      `corners ${cornerText} · ${real.length} shape${real.length === 1 ? '' : 's'}`;
+  }
+
+  // ---------- zoom & pan ----------
+  const zLabel = document.getElementById('zLabel');
+  function setView(x, y, s) {
+    view.s = Math.min(8, Math.max(0.05, s)); view.x = x; view.y = y;
+    zLabel.textContent = Math.round(view.s * 100) + '%';
+    requestDraw();
+  }
+  function zoomAt(sp, factor) {
+    const w = toWorld(sp), s = Math.min(8, Math.max(0.05, view.s * factor));
+    setView(sp.x - w.x * s, sp.y - w.y * s, s);
+  }
+  function fitAll() {
+    const pts = [];
+    for (const s of shapes) { if (!layerOn(s)) continue; if (s.result) pts.push(...s.result.verts); for (const r of (s.raws || [s.raw])) pts.push(...r); }
+    if (!pts.length) pts.push(...bgPoints());
+    if (!pts.length) { setView(0, 0, 1); return; }
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const p of pts) { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); }
+    const pad = 70, s = Math.min(4, (cssW - 2 * pad) / Math.max(1, maxX - minX), (cssH - 2 * pad) / Math.max(1, maxY - minY));
+    setView(cssW / 2 - (minX + maxX) / 2 * s, cssH / 2 - (minY + maxY) / 2 * s, s);
+  }
+  document.getElementById('zIn').addEventListener('click', () => zoomAt({ x: cssW / 2, y: cssH / 2 }, 1.25));
+  document.getElementById('zOut').addEventListener('click', () => zoomAt({ x: cssW / 2, y: cssH / 2 }, 0.8));
+  zLabel.addEventListener('click', () => zoomAt({ x: cssW / 2, y: cssH / 2 }, 1 / view.s));
+  document.getElementById('zFit').addEventListener('click', fitAll);
+  cv.addEventListener('wheel', e => {
+    e.preventDefault();
+    const sp = localPoint(e);
+    if (!e.ctrlKey && Math.abs(e.deltaX) > Math.abs(e.deltaY)) { setView(view.x - e.deltaX, view.y, view.s); return; }
+    zoomAt(sp, Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)));
+  }, { passive: false });
+
+  // ---------- input ----------
+  function localPoint(e) {
+    const r = cv.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+  const touches = new Map();
+  let mode = null;            // 'draw' | 'pan' | 'pinch' | 'wait'
+  let drawId = null, drawType = null, panId = null, panLast = null, pinch = null, spaceDown = false;
+  let liveRes = null;
+  let selectGesture = false;   // a touch made while Draw is off: tap selects, hold moves, drag pans
+  let movingGroup = false;
+  let liveSegs = [], liveTargets = [], moveTargets = [], moveVerts0 = [], applied = { x: 0, y: 0 }, snapHit = null;
+  let selected = null, holdTimer = null, holdStart = null, moveLast = null, movedOnce = false;
+  const HOLD_MS = 400;
+
+  const setCursor = () => {
+    cv.style.cursor = mode === 'move' ? 'move' : mode === 'pan' ? 'grabbing'
+      : (opts.hand || spaceDown) ? 'grab'
+      : (!opts.draw && !editTool()) ? 'default'   // selecting: plain arrow, no hand
+      : 'crosshair';
+  };
+  function startPinch() {
+    const [a, b] = [...touches.values()];
+    const mid = mul(add(a, b), 0.5);
+    pinch = { d0: Math.max(1, dist(a, b)), s0: view.s, w: toWorld(mid) };
+    mode = 'pinch';
+  }
+
+  cv.addEventListener('contextmenu', e => e.preventDefault());
+  const settingsEl = document.getElementById('settings'), settingsBtn = document.getElementById('tSettings');
+  const setSettings = open => { settingsEl.classList.toggle('open', open); settingsBtn.setAttribute('aria-expanded', String(open)); };
+  settingsBtn.addEventListener('click', () => setSettings(!settingsEl.classList.contains('open')));
+  cv.addEventListener('pointerdown', e => {
+    if (!layerPanel.hidden) { layerPanel.hidden = true; layerBtn.setAttribute('aria-expanded', 'false'); }
+    if (!pop.hidden && !(cornerEdit && cornerEdit.closed)) closeEditor();
+    if (settingsEl.classList.contains('open')) setSettings(false);
+    const sp = localPoint(e);
+    if (e.pointerType === 'touch') {
+      if (mode === 'draw' && drawType === 'pen') return; // palm resting while the pen draws
+      touches.set(e.pointerId, sp);
+      cv.setPointerCapture(e.pointerId);
+      if (touches.size >= 2) {
+        if (mode === 'draw') { live = null; liveRes = null; drawId = null; }
+        startPinch(); requestDraw(); return;
+      }
+      if (mode) return;
+      if (opts.penOnly || opts.hand) { mode = 'pan'; panId = e.pointerId; panLast = sp; setCursor(); return; }
+    } else {
+      if (mode) return;
+      if (e.button === 1 || e.button === 2 || (e.buttons & 2) || spaceDown || opts.hand) {
+        e.preventDefault(); cv.setPointerCapture(e.pointerId);
+        mode = 'pan'; panId = e.pointerId; panLast = sp; setCursor(); return;
+      }
+      if (e.button !== 0) return;
+      cv.setPointerCapture(e.pointerId);
+    }
+    if (vertSel && !opts.draw && !editTool() && !pick && !divState && !opts.line && !refPick) {
+      const v = vertPos(vertSel);
+      if (v && dist(toScreen(v), sp) < 24) {
+        e.preventDefault(); cv.setPointerCapture(e.pointerId);
+        const sh = shapes.find(x => x.id === vertSel.sid);
+        mode = 'vdrag'; drawId = e.pointerId;
+        vdrag = { moved: false, targets: opts.snapPoints ? snapTargets([sh]) : [], segs: opts.snapPoints ? bgSegments() : [] };
+        return;
+      }
+    }
+    if (pick && pick.kind === 'rotate-drag') {
+      // manual rotation: angle follows the pointer around the rotation point
+      e.preventDefault(); cv.setPointerCapture(e.pointerId);
+      const c = toScreen(pick.center);
+      mode = 'rotdrag'; drawId = e.pointerId;
+      pick.startA = pick.prevA = Math.atan2(sp.y - c.y, sp.x - c.x);
+      pick.acc = 0; pick.angle = 0; pick.cur = sp;
+      requestDraw(); return;
+    }
+    e.preventDefault();
+    mode = 'draw'; drawId = e.pointerId; drawType = e.pointerType;
+    selectGesture = (!opts.draw && !editTool()) || !!pick || !!divState || opts.line || !!(cornerEdit && cornerEdit.closed) || refPick;
+    live = [sp]; liveRes = null;
+    liveTargets = opts.snapPoints && !editTool() ? snapTargets(null) : [];
+    liveSegs = opts.snapPoints && !editTool() ? bgSegments() : [];
+    clearTimeout(holdTimer); holdStart = sp;
+    if (!editTool() && !pick && !divState && !opts.line && !cornerEdit && !refPick) holdTimer = setTimeout(() => tryHold(sp), HOLD_MS);
+    requestDraw();
+  });
+
+  // press and hold on a shape picks it up for moving
+  function tryHold(sp) {
+    holdTimer = null;
+    if (mode !== 'draw') return;
+    selectGesture = false;
+    const s = shapeAt(toWorld(sp), 1 / view.s);
+    if (!s) return;
+    mode = 'move'; live = null; liveRes = null;
+    if (group.includes(s)) { selected = null; movingGroup = true; }
+    else { selected = s; group = []; movingGroup = false; }
+    moveLast = toWorld(sp); movedOnce = false;
+    setCursor(); updateReadout(); requestDraw();
+  }
+
+  cv.addEventListener('pointerleave', () => { if (hoverSnap) { hoverSnap = null; requestDraw(); } });
+  cv.addEventListener('pointermove', e => {
+    if (mode === null && (opts.draw || opts.line) && e.pointerType !== 'touch') updateHoverSnap(localPoint(e));
+    else if (hoverSnap && mode !== null) hoverSnap = null;
+    if (touches.has(e.pointerId)) touches.set(e.pointerId, localPoint(e));
+    if (mode === 'pinch' && touches.size >= 2) {
+      const [a, b] = [...touches.values()];
+      const mid = mul(add(a, b), 0.5), s = Math.min(8, Math.max(0.05, pinch.s0 * dist(a, b) / pinch.d0));
+      setView(mid.x - pinch.w.x * s, mid.y - pinch.w.y * s, s);
+    } else if (mode === 'pan' && e.pointerId === panId) {
+      const sp = localPoint(e);
+      setView(view.x + sp.x - panLast.x, view.y + sp.y - panLast.y, view.s);
+      panLast = sp;
+    } else if (mode === 'move' && e.pointerId === drawId) {
+      const w = toWorld(localPoint(e));
+      const copyOf = sh => { const i = shapes.indexOf(sh), c = JSON.parse(JSON.stringify(sh)); shapes[i] = c; return c; };
+      if (!movedOnce) {
+        // copy before the first move so Undo can put the shapes back
+        pushHistory();
+        if (movingGroup) group = group.map(copyOf); else selected = copyOf(selected);
+        movedOnce = true;
+        const movers = movingGroup ? group : [selected];
+        moveTargets = opts.snapPoints ? snapTargets(movers) : [];
+        moveVerts0 = movers.flatMap(sh => sh.result ? [sh.result.verts, ...(sh.result.holes || [])].flat() : []).map(q => ({ x: q.x, y: q.y }));
+        applied = { x: 0, y: 0 };
+      }
+      // total offset from where the hold started, pulled onto the nearest corner-to-corner match
+      let want = sub(w, moveLast);
+      snapHit = null;
+      if (moveTargets.length) {
+        let best = null, bd = 18 / view.s;
+        for (const v of moveVerts0) {
+          const vx = v.x + want.x, vy = v.y + want.y;
+          for (const t of moveTargets) {
+            const dd = Math.hypot(t.x - vx, t.y - vy);
+            if (dd < bd) { bd = dd; best = { x: t.x - vx, y: t.y - vy, t }; }
+          }
+        }
+        if (best) { want = add(want, best); snapHit = best.t; }
+      }
+      const d = sub(want, applied);
+      applied = want;
+      if (movingGroup) { group.forEach(g => translateShape(g, d)); if (lasso) translateShape(lasso, d); }
+      else translateShape(selected, d);
+      requestDraw();
+    } else if (mode === 'vdrag' && e.pointerId === drawId) {
+      const sp = localPoint(e), sh = shapes.find(x => x.id === vertSel.sid);
+      if (!sh) return;
+      let target = sh;
+      if (!vdrag.moved) {
+        // copy first so Undo puts the corner back
+        pushHistory();
+        const i = shapes.indexOf(sh), c = JSON.parse(JSON.stringify(sh));
+        shapes[i] = c; selected = c; target = c; vdrag.moved = true;
+      }
+      const snapped = snapAt(sp, vdrag.targets, vdrag.segs, 24);
+      const w = snapped || toWorld(sp);
+      snapHit = snapped ? { x: w.x, y: w.y } : null;
+      const r = [target.result.verts, ...(target.result.holes || [])][vertSel.ri];
+      r[vertSel.vi] = { x: w.x, y: w.y };
+      target.fixed = true;
+      requestDraw();
+    } else if (mode === 'rotdrag' && e.pointerId === drawId) {
+      const sp = localPoint(e), c = toScreen(pick.center), a = Math.atan2(sp.y - c.y, sp.x - c.x);
+      let d = a - pick.prevA;
+      if (d > Math.PI) d -= 2 * Math.PI; else if (d < -Math.PI) d += 2 * Math.PI;
+      pick.acc += d; pick.prevA = a; pick.cur = sp;
+      const raw = -pick.acc * 180 / Math.PI;   // screen y is down, so negate for counter-clockwise
+      pick.angle = Math.round(raw / 5) * 5;
+      pick.onGrid = false;
+      if (pick.edgeAng != null) {
+        // turning by a (counter-clockwise) leaves the longest edge at screen angle e0 - a;
+        // when that comes within 4° of the grid (or its 45° diagonals), click onto it
+        const unit = opts.step === 45 ? 45 : 90, e0 = pick.edgeAng * 180 / Math.PI;
+        const aligned = e0 - Math.round((e0 - raw) / unit) * unit;
+        if (Math.abs(aligned - raw) < 4) { pick.angle = +aligned.toFixed(6); pick.onGrid = true; }
+      }
+      requestDraw();
+    } else if (mode === 'draw' && e.pointerId === drawId && selectGesture) {
+      // Draw is off: once the finger or pen really moves, this becomes a pan
+      const sp = localPoint(e);
+      if (dist(sp, holdStart) > 8) {
+        clearTimeout(holdTimer); holdTimer = null;
+        live = null; liveRes = null; selectGesture = false;
+        mode = 'pan'; panId = e.pointerId; panLast = sp;
+        setView(view.x + sp.x - holdStart.x, view.y + sp.y - holdStart.y, view.s);
+        setCursor();
+      }
+    } else if (mode === 'draw' && e.pointerId === drawId) {
+      if (holdTimer && dist(localPoint(e), holdStart) > 8) { clearTimeout(holdTimer); holdTimer = null; }
+      const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
+      for (const ev of (evs.length ? evs : [e])) live.push(localPoint(ev));
+      requestDraw();
+    }
+  });
+
+  function endPointer(e, cancelled) {
+    touches.delete(e.pointerId);
+    if (mode === 'pinch' || mode === 'wait') { mode = touches.size ? 'wait' : null; setCursor(); return; }
+    if (mode === 'pan' && e.pointerId === panId) { mode = null; panId = null; setCursor(); return; }
+    if (mode === 'vdrag' && e.pointerId === drawId) { mode = null; drawId = null; snapHit = null; vdrag = null; updateReadout(); requestDraw(); return; }
+    if (mode === 'rotdrag' && e.pointerId === drawId) {
+      mode = null; drawId = null;
+      if (!cancelled && pick && pick.angle) applyRotation(pick.targets, pick.center, pick.angle);
+      else requestDraw();
+      return;
+    }
+    if (mode === 'move' && e.pointerId === drawId) { mode = null; drawId = null; snapHit = null; setCursor(); updateReadout(); requestDraw(); return; }
+    if (mode !== 'draw' || e.pointerId !== drawId) return;
+    clearTimeout(holdTimer); holdTimer = null;
+    mode = null; drawId = null; selectGesture = false;
+    const screenPts = live; live = null; liveRes = null;
+    if (!cancelled && screenPts) finishStroke(screenPts);
+    requestDraw();
+  }
+  cv.addEventListener('pointerup', e => endPointer(e, false));
+  cv.addEventListener('pointercancel', e => endPointer(e, true));
+
+  function finishStroke(screenPts) {
+    let len = 0; for (let i = 1; i < screenPts.length; i++) len += dist(screenPts[i - 1], screenPts[i]);
+    const px = 1 / view.s;
+    if (cornerEdit && cornerEdit.closed) { if (len <= 6) cornerChoiceTap(screenPts[0]); return; }
+    if (refPick) { if (len <= 6) refTap(screenPts[0]); return; }
+    if (divState) { if (len <= 6) divTap(screenPts[0]); return; }
+    if (opts.line) { if (len <= 6) lineTap(screenPts[0]); return; }
+    if (pick) { handlePick(screenPts[0]); return; }
+    if (opts.trim) { trimAlong(screenPts, len); return; }
+    if (opts.extend) { extendAlong(screenPts, len); return; }
+    if (opts.alignTool) { if (len <= 6) alignTap(screenPts[0]); else toast('Tap an edge, then the line to line it up with'); return; }
+    if (opts.offset) {
+      if (len <= 6) offsetPick(screenPts[0]); else toast('Tap each line segment to pick it');
+      return;
+    }
+    if (opts.dim) { dimTool(screenPts, len); return; }
+    if (!opts.draw) len = 0;
+    if (len <= 6) {
+      const t = screenPts[0];
+      // a tap right on a line selects the line, even where a label sits close by
+      const onLine = nearestLine(toWorld(t)).d * view.s < 8;
+      const ah = !onLine && annotAt(t);
+      if (ah) { editAnnot(ah.d); return; }
+      const hit = !onLine && opts.dims && [...dimHits].reverse().find(d => Math.abs(t.x - d.x) <= d.w / 2 + 4 && Math.abs(t.y - d.y) <= 10);
+      if (hit) { editEdge(hit); return; }
+      const ch = !onLine && opts.dims && [...cornerHits].reverse().find(d => Math.abs(t.x - d.x) <= d.w / 2 + 4 && Math.abs(t.y - d.y) <= 10);
+      if (ch) { editCorner(ch); return; }
+      group = []; lasso = null;
+      const vh = vertexAt(t, 20);
+      if (vh) { vertSel = vh; selected = shapes.find(x => x.id === vh.sid) || null; segSel = null; updateReadout(); requestDraw(); return; }
+      vertSel = null;
+      const tapped = shapeAt(toWorld(t), px);
+      if (tapped && tapped === selected) segSel = segAt(t, tapped, 26);   // tap the selected shape again: pick a segment
+      else { selected = tapped; segSel = null; }
+      updateReadout(); requestDraw(); return;
+    }
+    const raw = screenPts.map(toWorld);
+    const scribble = scribbleLevel(screenPts);
+    const dimHit = !scribble ? [] : annots.filter(d => annotWork(d)).filter(d => {
+        if (d.kind === 'ang') { const h = annotHits.find(x => x.d === d); return !!h && screenPts.filter(q => dist(q, h) < 24).length >= 3; }
+        const pp = dimPoints(d); if (!pp) return false;
+        const [p1, p2] = pp.map(toScreen);
+        return screenPts.filter(q => segDist(q, p1, p2) < 14).length >= 3;
+      });
+    // a scribble on a dimension removes just the dimension
+    const hit = !scribble || dimHit.length ? [] : workShapes().filter(s => hitsShape(raw, s, px));
+    if (scribble && (hit.length || dimHit.length || scribble === 2)) {
+      if (hit.length || dimHit.length) {
+        pushHistory();
+        shapes = shapes.filter(s => !hit.includes(s));
+        annots = annots.filter(d => !dimHit.includes(d));
+        const parts = [];
+        if (hit.length) parts.push(`${hit.length} shape${hit.length === 1 ? '' : 's'}`);
+        if (dimHit.length) parts.push(`${dimHit.length} dimension${dimHit.length === 1 ? '' : 's'}`);
+        toast('Deleted ' + parts.join(' and '));
+      } else toast('Scribble over a shape to delete it');
+    } else if (lassoed(raw, screenPts, px)) {
+      return;
+    } else {
+      pushHistory();
+      group = []; lasso = null;
+      shapes.push({ raw, px, result: recognizeAt(raw, withSnap(null), px) });
+      selected = null;
+    }
+    updateReadout();
+  }
+
+  // a loop that goes around whole shapes selects them instead of becoming a new shape
+  function lassoed(raw, screenPts, px) {
+    const b = bboxOf(screenPts), diag = Math.hypot(b.maxX - b.minX, b.maxY - b.minY);
+    if (dist(screenPts[0], screenPts[screenPts.length - 1]) > Math.max(40, diag * 0.25)) return false;
+    const inside = workShapes().filter(s => {
+      const pts = shapePoints(s);
+      return pts.filter(p => inRing(p, raw)).length >= pts.length * 0.85;
+    });
+    if (!inside.length) return false;
+    selected = null; group = inside; lasso = { raw, px };
+    updateReadout();
+    return true;
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.target.closest && e.target.closest('input, select')) return;
+    if (e.code === 'Space') { e.preventDefault(); if (!spaceDown) { spaceDown = true; setCursor(); } }
+    if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'd') document.getElementById('tDraw').click();
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
+    if ((e.key === 'Delete' || e.key === 'Backspace') && group.length) { e.preventDefault(); deleteGroup(); }
+    else if ((e.key === 'Delete' || e.key === 'Backspace') && vertSel) { e.preventDefault(); deleteVertex(); }
+    else if ((e.key === 'Delete' || e.key === 'Backspace') && selected) { e.preventDefault(); deleteSelected(); }
+    if (opts.line && linePts.length) {
+      if (e.key === 'Enter') { e.preventDefault(); finishLine(false); return; }
+      if (e.key === 'Backspace') { e.preventDefault(); linePts.pop(); requestDraw(); return; }
+      if (e.key === 'Escape') { linePts = []; requestDraw(); return; }
+    }
+    if (e.key === 'Escape' && divState) { divState = null; requestDraw(); return; }
+    if (e.key === 'Escape' && vertSel) { vertSel = null; requestDraw(); return; }
+    if (e.key === 'Escape' && segSel) { segSel = null; requestDraw(); return; }
+    if (e.key === 'Escape' && pick) { endPick(); return; }
+    if (e.key === 'Escape') { selected = null; group = []; lasso = null; updateReadout(); requestDraw(); }
+  });
+  document.addEventListener('keyup', e => { if (e.code === 'Space') { spaceDown = false; setCursor(); } });
+
+  // ---------- scribble to delete ----------
+  // a scribble doubles back on itself many times within a small area (tested in screen pixels)
+  // How scribble-like a stroke is: 0 = not a scribble, 1 = maybe, 2 = certainly.
+  // Counts back-and-forth reversals along the stroke's own main axis (and across it),
+  // ignoring jitter, plus how much it winds around for circular scribbling.
+  function scribbleLevel(pts0) {
+    const pts = resample(pts0, 5);
+    if (pts.length < 10) return 0;
+    let mx = 0, my = 0;
+    for (const q of pts) { mx += q.x; my += q.y; }
+    mx /= pts.length; my /= pts.length;
+    let sxx = 0, syy = 0, sxy = 0;
+    for (const q of pts) { const dx = q.x - mx, dy = q.y - my; sxx += dx * dx; syy += dy * dy; sxy += dx * dy; }
+    const th = 0.5 * Math.atan2(2 * sxy, sxx - syy);
+    const axes = [{ x: Math.cos(th), y: Math.sin(th) }, { x: -Math.sin(th), y: Math.cos(th) }];
+    const b = bboxOf(pts), diag = Math.hypot(b.maxX - b.minX, b.maxY - b.minY) || 1;
+    const pathLen = (pts.length - 1) * 5;
+    let rev = 0;
+    for (const u of axes) {
+      const vs = pts.map(q => dot(q, u));
+      const span = Math.max(...vs) - Math.min(...vs), h = Math.max(8, span * 0.25);
+      let dir = 0, ext = vs[0], n = 0;
+      for (const v of vs) {
+        if (dir === 0) { if (v - ext > h) { dir = 1; ext = v; } else if (ext - v > h) { dir = -1; ext = v; } }
+        else if (dir === 1) { if (v > ext) ext = v; else if (ext - v > h) { dir = -1; ext = v; n++; } }
+        else { if (v < ext) ext = v; else if (v - ext > h) { dir = 1; ext = v; n++; } }
+      }
+      rev = Math.max(rev, n);
+    }
+    // hairpins: the stroke doubles straight back on itself within a short distance.
+    // Outlines turn through 90° corners instead, so notched shapes (L, E, stairs) don't count.
+    let hairpins = 0;
+    for (const k of [3, 6]) {           // arms of about 15 px and 30 px
+      let c = 0;
+      for (let i = k; i < pts.length - k; i++) {
+        const a = norm(sub(pts[i], pts[i - k])), bb = norm(sub(pts[i + k], pts[i]));
+        if (dot(a, bb) < -0.85) { c++; i += 2 * k; }
+      }
+      hairpins = Math.max(hairpins, c);
+    }
+    // circular scribbling winds round the same way several times; an outline winds once
+    let wind = 0;
+    for (let i = 2; i < pts.length; i++) {
+      const a = sub(pts[i - 1], pts[i - 2]), c = sub(pts[i], pts[i - 1]);
+      wind += Math.atan2(cross(a, c), dot(a, c));
+    }
+    wind = Math.abs(wind);
+    const dense = pathLen / diag;
+    if ((hairpins >= 4 && dense > 2.5) || (wind > 5 * Math.PI && dense > 3)) return 2;
+    if ((hairpins >= 2 && rev >= 2 && dense > 2) || (wind > 3.5 * Math.PI && dense > 3)) return 1;
+    return 0;
+  }
+
+  function segDist(p, a, b) {
+    const ab = sub(b, a), l2 = dot(ab, ab);
+    const t = l2 ? Math.max(0, Math.min(1, dot(sub(p, a), ab) / l2)) : 0;
+    return dist(p, add(a, mul(ab, t)));
+  }
+  function inRing(p, r) {
+    let inside = false;
+    for (let i = 0, j = r.length - 1; i < r.length; j = i++)
+      if ((r[i].y > p.y) !== (r[j].y > p.y) && p.x < (r[j].x - r[i].x) * (p.y - r[i].y) / (r[j].y - r[i].y) + r[i].x) inside = !inside;
+    return inside;
+  }
+  function pointHits(p, s, px) {
+    const res = s.result;
+    const rings = res ? [res.verts, ...(res.holes || [])] : [s.raw];
+    const closed = res ? res.closed : false;
+    for (const r of rings) {
+      const n = r.length, edges = closed ? n : n - 1;
+      for (let i = 0; i < edges; i++) if (segDist(p, r[i], r[(i + 1) % n]) < 14 * px) return true;
+    }
+    return closed && inRing(p, rings[0]) && !rings.slice(1).some(h => inRing(p, h));
+  }
+  function hitsShape(raw, s, px) {
+    const pts = resample(raw, 6 * px);
+    let hits = 0;
+    for (const p of pts) if (pointHits(p, s, px)) hits++;
+    return hits / pts.length >= 0.3;
+  }
+  // topmost shape under a point, or null
+  // distance (world units) from a point to the nearest line of any shape, and that shape
+  function nearestLine(p) {
+    let best = null, bd = Infinity;
+    for (const sh of workShapes()) {
+      const rings = sh.result ? [sh.result.verts, ...(sh.result.holes || [])] : [sh.raw];
+      const closed = sh.result ? sh.result.closed : false;
+      for (const r of rings) {
+        const n = r.length, E = closed ? n : n - 1;
+        for (let i = 0; i < E; i++) { const d = segDist(p, r[i], r[(i + 1) % n]); if (d < bd) { bd = d; best = sh; } }
+      }
+    }
+    return { sh: best, d: bd };
+  }
+  const ringArea = r => { let a = 0; for (let i = 0; i < r.length; i++) a += cross(r[i], r[(i + 1) % r.length]); return Math.abs(a / 2); };
+  // what a tap selects: the closest line within reach wins; only if no line is near
+  // does the fill count, and then the smallest closed shape you tapped inside
+  function shapeAt(p, px) {
+    const nl = nearestLine(p);
+    if (nl.sh && nl.d < 22 * px) return nl.sh;
+    let best = null, ba = Infinity;
+    for (const sh of workShapes()) {
+      if (!sh.result || !sh.result.closed) continue;
+      const holes = sh.result.holes || [];
+      if (!inRing(p, sh.result.verts) || holes.some(h => inRing(p, h))) continue;
+      const a = ringArea(sh.result.verts);
+      if (a < ba) { ba = a; best = sh; }
+    }
+    return best;
+  }
+  function translateShape(s, d) {
+    const move = arr => { if (arr) for (const q of arr) { q.x += d.x; q.y += d.y; } };
+    if (s.raw) move(s.raw);
+    if (s.raws) s.raws.forEach(move);
+    if (s.result) { move(s.result.verts); move(s.result.breaks); (s.result.holes || []).forEach(move); }
+  }
+
+  // ---------- trim & polygon from lines ----------
+  function segInter(a, b, c, d) {
+    const r = sub(b, a), q = sub(d, c), den = cross(r, q);
+    if (Math.abs(den) < 1e-12) return null;
+    const ac = sub(c, a), t = cross(ac, q) / den, u = cross(ac, r) / den, e = 1e-9;
+    if (t < -e || t > 1 + e || u < -e || u > 1 + e) return null;
+    return { t: Math.min(1, Math.max(0, t)), u: Math.min(1, Math.max(0, u)) };
+  }
+  const lerp = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+  const ringsOf = sh => sh.result ? [sh.result.verts, ...(sh.result.holes || [])] : [];
+
+  // cut the tapped piece of a line back to the nearest crossings
+  function trimAt(p, px, pickPx = 14) {
+    const tol = 14 * px, pickTol = pickPx * px;
+    let best = null;
+    for (const sh of workShapes()) {
+      if (!sh.result || (sh.result.holes && sh.result.holes.length)) continue;
+      const v = sh.result.verts, n = v.length, E = sh.result.closed ? n : n - 1;
+      for (let i = 0; i < E; i++) {
+        const d = segDist(p, v[i], v[(i + 1) % n]);
+        if (d < pickTol && (!best || d < best.d)) best = { sh, i, d };
+      }
+    }
+    if (!best) return 'miss';
+    const sh = best.sh, closed = sh.result.closed;
+    // walk the outline as a path; a closed outline is walked twice so pieces can wrap around
+    const base = sh.result.verts, n = base.length;
+    const path = closed ? [...base, ...base, base[0]] : base;
+    const E = closed ? n : n - 1;
+    const cum = [0];
+    for (let i = 0; i < path.length - 1; i++) cum.push(cum[i] + dist(path[i], path[i + 1]));
+    const total = cum[E];
+    const along = (i, t) => cum[i] + t * (cum[i + 1] - cum[i]);
+    const a0 = base[best.i], b0 = path[best.i + 1], ab = sub(b0, a0);
+    const tp = along(best.i, Math.max(0, Math.min(1, dot(sub(p, a0), ab) / (dot(ab, ab) || 1))));
+    const cuts = [];
+    for (const o of workShapes()) {
+      if (o === sh || !o.result) continue;
+      for (const r of ringsOf(o)) {
+        const m = r.length, oE = o.result.closed ? m : m - 1;
+        for (let j = 0; j < oE; j++) for (let i = 0; i < E; i++) {
+          const x = segInter(path[i], path[i + 1], r[j], r[(j + 1) % m]);
+          if (x) cuts.push(along(i, x.t));
+        }
+      }
+      if (!o.result.closed) { // a line that stops just short of this one still counts as a cutting edge
+        const ov = o.result.verts;
+        for (const e of [ov[0], ov[ov.length - 1]]) for (let i = 0; i < E; i++) {
+          if (segDist(e, path[i], path[i + 1]) < tol) {
+            const d = sub(path[i + 1], path[i]);
+            cuts.push(along(i, Math.max(0, Math.min(1, dot(sub(e, path[i]), d) / (dot(d, d) || 1)))));
+          }
+        }
+      }
+    }
+    // the shape crossing or touching itself bounds a piece too
+    for (let j = 0; j < E; j++) for (let i = 0; i < E; i++) {
+      const gap = Math.abs(i - j);
+      if (gap <= 1 || (closed && gap === n - 1)) continue;   // neighbouring segments share a corner
+      const x = segInter(path[i], path[i + 1], base[j], base[(j + 1) % n]);
+      if (x) cuts.push(along(i, x.t));
+    }
+    if (!closed) { // its own end stopping just short of one of its segments
+      for (const [e, own] of [[base[0], 0], [base[n - 1], n - 2]]) for (let i = 0; i < E; i++) {
+        if (Math.abs(i - own) <= 1) continue;
+        if (segDist(e, path[i], path[i + 1]) < tol) {
+          const d = sub(path[i + 1], path[i]);
+          cuts.push(along(i, Math.max(0, Math.min(1, dot(sub(e, path[i]), d) / (dot(d, d) || 1)))));
+        }
+      }
+    }
+    // the line's own corners also bound a piece, so one tap removes at most part of one segment
+    for (let i = 1; i < E; i++) cuts.push(cum[i]);
+    if (closed) cuts.push(0);
+    const cs = [...new Set(cuts.map(c => +c.toFixed(6)))].sort((a, b) => a - b);
+    const extract = (t0, t1) => {
+      const at = t => { let i = 0; while (i < path.length - 2 && cum[i + 1] < t) i++; return lerp(path[i], path[i + 1], cum[i + 1] > cum[i] ? (t - cum[i]) / (cum[i + 1] - cum[i]) : 0); };
+      const out = [at(t0)];
+      for (let i = 0; i < path.length; i++) if (cum[i] > t0 + 1e-6 && cum[i] < t1 - 1e-6) out.push({ x: path[i].x, y: path[i].y });
+      out.push(at(t1));
+      return out.filter((q, i) => i === 0 || dist(q, out[i - 1]) > 1e-6);
+    };
+    let pieces = [];
+    if (closed) {
+      const inner = cs.filter(c => c < total - 1e-6);
+      if (inner.length < 2) return 'nocut';
+      const before = inner.filter(c => c < tp), after = inner.filter(c => c > tp);
+      const ta = before.length ? before[before.length - 1] : inner[inner.length - 1];
+      const tb = after.length ? after[0] : inner[0];
+      // keep everything from tb forward (wrapping) to ta
+      pieces.push(extract(tb, ta > tb ? ta : ta + total));
+    } else {
+      const before = cs.filter(c => c < tp - 1e-6 && c > 1e-6), after = cs.filter(c => c > tp + 1e-6 && c < total - 1e-6);
+      if (!before.length && !after.length) return 'nocut';
+      const ta = before.length ? before[before.length - 1] : 0, tb = after.length ? after[0] : total;
+      if (ta > 1e-6) pieces.push(extract(0, ta));
+      if (tb < total - 1e-6) pieces.push(extract(tb, total));
+    }
+    pieces = pieces.filter(pc => pc.length >= 2);
+    // a piece whose two ends meet is a closed outline
+    const repl = pieces.map(pc => {
+      const loop = pc.length >= 4 && dist(pc[0], pc[pc.length - 1]) < 1e-6;
+      return { raw: [], px: sh.px || 1, fixed: true, result: { verts: loop ? pc.slice(0, -1) : pc, closed: loop } };
+    });
+    const idx = shapes.indexOf(sh);
+    shapes.splice(idx, 1, ...repl);
+    return 'ok';
+  }
+
+  function trimAlong(screenPts, len) {
+    const px = 1 / view.s;
+    let pts = [];
+    if (len <= 6) pts = [{ p: toWorld(screenPts[0]), pick: 20 }];
+    else {
+      // a drag trims only the pieces it actually crosses, at the spot where it crosses them
+      const sw = resample(screenPts, 4).map(toWorld);
+      for (const sh of workShapes()) {
+        if (!sh.result) continue;
+        for (const r of ringsOf(sh)) {
+          const m = r.length, E = sh.result.closed ? m : m - 1;
+          for (let ei = 0; ei < E; ei++) for (let k = 0; k < sw.length - 1; k++) {
+            const x = segInter(sw[k], sw[k + 1], r[ei], r[(ei + 1) % m]);
+            if (x) pts.push({ p: lerp(r[ei], r[(ei + 1) % m], x.u), pick: 2 });
+          }
+        }
+      }
+      if (!pts.length) { toast('Drag across the part of a line you want to remove'); return; }
+    }
+    pushHistory();
+    let changed = false, nocut = false;
+    for (const q of pts) {
+      const r = trimAt(q.p, px, q.pick);
+      if (r === 'ok') changed = true; else if (r === 'nocut') nocut = true;
+    }
+    if (!changed) {
+      history.pop();
+      toast(nocut ? 'Nothing crosses that line to trim back to' : 'Tap the part of a line you want to remove');
+    }
+    selected = null; group = []; lasso = null;
+    updateReadout(); requestDraw();
+  }
+
+  // ---------- extend ----------
+  let extPending = null;   // { sh, i }: a line waiting for a second line to meet
+
+  // the segment under a tap, and which of its ends is nearer the tap
+  function pickSegment(p, px) {
+    const tol = 18 * px;
+    let best = null;
+    for (const sh of workShapes()) {
+      if (!sh.result || (sh.result.holes && sh.result.holes.length)) continue;
+      const v = sh.result.verts, m = v.length, E = sh.result.closed ? m : m - 1;
+      for (let i = 0; i < E; i++) {
+        const d = segDist(p, v[i], v[(i + 1) % m]);
+        if (d < tol && (!best || d < best.d)) best = { sh, i, d };
+      }
+    }
+    if (!best) return null;
+    const v = best.sh.result.verts, A = v[best.i], B = v[(best.i + 1) % v.length], ab = sub(B, A);
+    return { sh: best.sh, i: best.i, atB: dot(sub(p, A), ab) / (dot(ab, ab) || 1) > 0.5 };
+  }
+
+  // first edge hit by continuing a segment past one of its ends
+  function rayHit(sh, i, atB) {
+    const v = sh.result.verts, m = v.length, A = v[i], B = v[(i + 1) % m], ab = sub(B, A);
+    const E0 = atB ? B : A, u = norm(atB ? ab : mul(ab, -1));
+    let hitS = Infinity;
+    for (const o of workShapes()) {
+      if (!o.result) continue;
+      for (const r of [o.result.verts, ...(o.result.holes || [])]) {
+        const k = r.length, oE = o.result.closed ? k : k - 1;
+        for (let j = 0; j < oE; j++) {
+          if (o === sh && r === v && j === i) continue; // the segment itself
+          const a = r[j], d = sub(r[(j + 1) % k], a), den = cross(u, d);
+          if (Math.abs(den) < 1e-9) continue;
+          const w = sub(a, E0), sAlong = cross(w, d) / den, t = cross(w, u) / den;
+          if (sAlong > 1e-6 && t >= -1e-9 && t <= 1 + 1e-9 && sAlong < hitS) hitS = sAlong;
+        }
+      }
+    }
+    return isFinite(hitS) ? add(E0, mul(u, hitS)) : null;
+  }
+
+  // move one end of segment i out to point `hit` along its own direction.
+  // At a line's free end the line just gets longer; at a corner the shape is split there.
+  function extendSegTo(sh, i, atB, hit) {
+    const v = sh.result.verts, m = v.length, closed = sh.result.closed, cp = q => ({ x: q.x, y: q.y });
+    hit = cp(hit);
+    let pieces, keepId = false;
+    if (!closed && atB && i === m - 2) { pieces = [[...v.slice(0, m - 1).map(cp), hit]]; keepId = true; }
+    else if (!closed && !atB && i === 0) { pieces = [[hit, ...v.slice(1).map(cp)]]; keepId = true; }
+    else if (!closed) {
+      pieces = atB ? [[...v.slice(0, i + 1).map(cp), hit], v.slice(i + 1).map(cp)]
+                   : [v.slice(0, i + 1).map(cp), [hit, ...v.slice(i + 1).map(cp)]];
+    } else {
+      // open the closed shape at that corner; the chosen edge runs on to the hit point
+      const at = k => cp(v[((k % m) + m) % m]), path = [];
+      if (atB) { for (let k = i + 1; k <= i + m; k++) path.push(at(k)); path.push(hit); }
+      else { path.push(hit); for (let k = i + 1; k <= i + m; k++) path.push(at(k)); }
+      pieces = [path];
+    }
+    const repl = pieces.filter(pc => pc.length >= 2).map(pc => ({ raw: [], px: sh.px || 1, fixed: true, result: { verts: pc, closed: false } }));
+    if (keepId && repl.length === 1) repl[0].id = sh.id; // same corners, so dimensions stay attached
+    shapes.splice(shapes.indexOf(sh), 1, ...repl);
+  }
+
+  function extendAt(p, px) {
+    const pk = pickSegment(p, px);
+    if (!pk) return { status: 'miss' };
+    const hit = rayHit(pk.sh, pk.i, pk.atB);
+    if (!hit) return { status: 'nohit', pk };
+    extendSegTo(pk.sh, pk.i, pk.atB, hit);
+    return { status: 'ok' };
+  }
+
+  // extend two lines along their own directions until they meet
+  function joinSegs(a, b) {
+    if (a.sh === b.sh) return 'same';
+    const seg = pk => { const v = pk.sh.result.verts; return [v[pk.i], v[(pk.i + 1) % v.length]]; };
+    const [A0, A1] = seg(a), [B0, B1] = seg(b);
+    const ua = sub(A1, A0), ub = sub(B1, B0), den = cross(ua, ub);
+    if (Math.abs(den) < 1e-6 * Math.hypot(ua.x, ua.y) * Math.hypot(ub.x, ub.y)) return 'parallel';
+    const ta = cross(sub(B0, A0), ub) / den, X = add(A0, mul(ua, ta));
+    const tb = dot(sub(X, B0), ub) / (dot(ub, ub) || 1);
+    let changed = false;
+    for (const [pk, t] of [[a, ta], [b, tb]]) {
+      if (t > 1 + 1e-9) { extendSegTo(pk.sh, pk.i, true, X); changed = true; }
+      else if (t < -1e-9) { extendSegTo(pk.sh, pk.i, false, X); changed = true; }
+    }
+    return changed ? 'ok' : 'nochange';
+  }
+  function joinWith(a, b) {
+    pushHistory();
+    const r = joinSegs(a, b);
+    if (r !== 'ok') {
+      history.pop();
+      toast({
+        same: 'Those lines are on one shape. Use Make polygon to close it.',
+        parallel: 'Those lines are parallel, so they never meet',
+        nochange: 'Those lines already meet'
+      }[r]);
+    } else toast('Extended to meet');
+    extPending = null; selected = null; group = []; lasso = null;
+    updateReadout(); requestDraw();
+  }
+
+  function extendAlong(screenPts, len) {
+    const px = 1 / view.s;
+    ensureIds();
+    if (extPending && !shapes.includes(extPending.sh)) extPending = null;
+    // a drag that starts on one line and ends on another joins them
+    if (len > 6) {
+      const a = pickSegment(toWorld(screenPts[0]), px), b = pickSegment(toWorld(screenPts[screenPts.length - 1]), px);
+      if (a && b && a.sh !== b.sh) { joinWith(a, b); return; }
+    }
+    // a line was waiting for a partner: this tap picks it
+    if (len <= 6 && extPending) {
+      const b = pickSegment(toWorld(screenPts[0]), px), a = extPending;
+      if (b && b.sh !== a.sh) { joinWith(a, b); return; }
+      extPending = null;
+      if (!b) { requestDraw(); return; }
+    }
+    const pts = (len <= 6 ? [screenPts[0]] : resample(screenPts, 6)).map(toWorld);
+    pushHistory();
+    // along a drag, each spot extends once: skip samples close to one that already worked
+    const used = [];
+    let changed = false, lonely = null;
+    for (const q of pts) {
+      if (used.some(u => dist(u, q) < 30 * px)) continue;
+      const r = extendAt(q, px);
+      if (r.status === 'ok') { changed = true; used.push(q); } else if (r.status === 'nohit' && !lonely) lonely = r.pk;
+    }
+    if (!changed) {
+      history.pop();
+      if (lonely && len <= 6) {
+        extPending = { sh: lonely.sh, i: lonely.i, atB: lonely.atB };
+        toast('Nothing in its path. Tap a second line to extend both until they meet.');
+      } else if (!lonely) toast('Tap near the end of a line to extend it');
+      else toast('Nothing in line with that end to extend to');
+    }
+    selected = null; group = []; lasso = null;
+    updateReadout(); requestDraw();
+  }
+
+  // ---------- align: slide a shape so one of its edges lies on another line ----------
+  let alignPick = null;   // { sid, ri, ei } of the edge that should end up on the line
+  function alignTap(tapS) {
+    ensureIds();
+    const w = toWorld(tapS), reach = 22 / view.s;
+    if (!alignPick) {
+      let best = null, bd = reach;
+      for (const sh of workShapes()) {
+        if (!sh.result) continue;
+        [sh.result.verts, ...(sh.result.holes || [])].forEach((r, ri) => {
+          const m = r.length, E = sh.result.closed ? m : m - 1;
+          for (let ei = 0; ei < E; ei++) { const d = segDist(w, r[ei], r[(ei + 1) % m]); if (d < bd) { bd = d; best = { sid: sh.id, ri, ei }; } }
+        });
+      }
+      if (!best) return toast('Tap an edge of the shape you want to move');
+      alignPick = best; requestDraw();
+      return;
+    }
+    const src = segEnds(alignPick);
+    if (!src) { alignPick = null; return; }
+    // the target: an edge of another shape on this layer, or a survey line
+    let tgt = null, bd = reach;
+    for (const sh of workShapes()) {
+      if (!sh.result || sh.id === alignPick.sid) continue;
+      for (const r of [sh.result.verts, ...(sh.result.holes || [])]) {
+        const m = r.length, E = sh.result.closed ? m : m - 1;
+        for (let i = 0; i < E; i++) { const d = segDist(w, r[i], r[(i + 1) % m]); if (d < bd) { bd = d; tgt = [r[i], r[(i + 1) % m]]; } }
+      }
+    }
+    for (const [a, b] of bgSegments()) { const d = segDist(w, a, b); if (d < bd) { bd = d; tgt = [a, b]; } }
+    if (!tgt) {
+      // tapping the same shape again picks a different edge instead
+      const again = shapeAt(w, 1 / view.s);
+      if (again && again.id === alignPick.sid) { alignPick = null; alignTap(tapS); return; }
+      return toast('Tap the line to line the edge up with');
+    }
+    const us = norm(sub(src.b, src.a)), ut = norm(sub(tgt[1], tgt[0]));
+    let d = Math.atan2(cross(us, ut), dot(us, ut));
+    if (d > Math.PI / 2) d -= Math.PI; else if (d < -Math.PI / 2) d += Math.PI;   // smallest turn to parallel, never flipped
+    const M = mul(add(src.a, src.b), 0.5), n = { x: -ut.y, y: ut.x };
+    const shift = mul(n, dot(sub(tgt[0], M), n));   // after turning about M, slide straight across onto the line
+    const sh = shapes.find(x => x.id === alignPick.sid);
+    alignPick = null;
+    if (!sh) return;
+    group = []; lasso = null;
+    editTargets([sh], c => { if (Math.abs(d) > 1e-9) mapShape(c, rotAbout(M, d)); translateShape(c, shift); c.fixed = true; });
+    const moved = Math.hypot(shift.x, shift.y) / view.s;
+    toast(Math.abs(d) > 1e-6 ? `Turned ${Math.abs(d * 180 / Math.PI).toFixed(1)}° and moved ${fmtLen(Math.hypot(shift.x, shift.y))}` : `Moved ${fmtLen(Math.hypot(shift.x, shift.y))}`);
+    updateReadout(); requestDraw();
+  }
+  function drawAlignPick() {
+    if (!opts.alignTool || !alignPick) return;
+    const g = segEnds(alignPick);
+    if (!g) { alignPick = null; return; }
+    const a = toScreen(g.a), b = toScreen(g.b);
+    ctx.strokeStyle = colors.vertex; ctx.globalAlpha = 0.5; ctx.lineWidth = 9; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.globalAlpha = 1;
+  }
+
+  function drawExtPending() {
+    if (!opts.extend || !extPending || !shapes.includes(extPending.sh)) return;
+    const v = extPending.sh.result.verts, a = toScreen(v[extPending.i]), b = toScreen(v[(extPending.i + 1) % v.length]);
+    ctx.strokeStyle = colors.vertex; ctx.globalAlpha = 0.45; ctx.lineWidth = 9; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.globalAlpha = 1;
+  }
+
+  // find the areas enclosed by a set of lines and return them as polygons
+  function polygonize(lines, px) {
+    const tol = 16 * px;
+    const pls = lines.map(sh => sh.result.verts.map(q => ({ x: q.x, y: q.y })));
+    const ends = [];
+    pls.forEach(pl => { ends.push({ p: pl[0], q: pl[1] }); ends.push({ p: pl[pl.length - 1], q: pl[pl.length - 2] }); });
+    // where the line through an end meets another line; keeps each line on its own direction
+    const meet = (p, q, a, b) => {
+      const r = sub(p, q), d = sub(b, a), den = cross(r, d);
+      if (Math.abs(den) < 1e-9) return null;
+      return add(q, mul(r, cross(sub(a, q), d) / den));
+    };
+    // ends that nearly meet become one corner
+    for (let i = 0; i < ends.length; i++) for (let j = i + 1; j < ends.length; j++) {
+      const A = ends[i], B = ends[j];
+      if (A.p === B.p || dist(A.p, B.p) >= tol) continue;
+      const X = meet(A.p, A.q, B.p, B.q);
+      const m = X && dist(X, A.p) < 2 * tol && dist(X, B.p) < 2 * tol ? X : mul(add(A.p, B.p), 0.5);
+      A.p.x = B.p.x = m.x; A.p.y = B.p.y = m.y;
+      A.joined = B.joined = true;
+    }
+    // an end that stops just short of (or just past) another line is extended along itself to meet it
+    for (const e of ends) {
+      if (e.joined) continue;
+      let best = null;
+      for (const pl of pls) for (let i = 0; i < pl.length - 1; i++) {
+        const a = pl[i], b = pl[i + 1];
+        if (a === e.p || b === e.p) continue;
+        const d = segDist(e.p, a, b);
+        if (d < tol && (!best || d < best.d)) best = { d, a, b };
+      }
+      if (best) {
+        const X = meet(e.p, e.q, best.a, best.b);
+        const ab = sub(best.b, best.a), t = Math.max(0, Math.min(1, dot(sub(e.p, best.a), ab) / (dot(ab, ab) || 1)));
+        const q = X && dist(X, e.p) < 2 * tol ? X : lerp(best.a, best.b, t);
+        e.p.x = q.x; e.p.y = q.y;
+      }
+    }
+    const segs = [];
+    for (const pl of pls) for (let i = 0; i < pl.length - 1; i++) if (dist(pl[i], pl[i + 1]) > 1e-6) segs.push([pl[i], pl[i + 1]]);
+    const cuts = segs.map(() => [0, 1]);
+    for (let i = 0; i < segs.length; i++) for (let j = i + 1; j < segs.length; j++) {
+      const x = segInter(segs[i][0], segs[i][1], segs[j][0], segs[j][1]);
+      if (x) { cuts[i].push(x.t); cuts[j].push(x.u); }
+    }
+    const nodes = [];
+    const nodeOf = q => {
+      for (let i = 0; i < nodes.length; i++) if (dist(nodes[i], q) < 0.01) return i;
+      nodes.push({ x: q.x, y: q.y }); return nodes.length - 1;
+    };
+    const adj = new Map();
+    const link = (i, j) => {
+      if (i === j) return;
+      if (!adj.has(i)) adj.set(i, new Set());
+      if (!adj.has(j)) adj.set(j, new Set());
+      adj.get(i).add(j); adj.get(j).add(i);
+    };
+    segs.forEach(([a, b], k) => {
+      const ts = [...new Set(cuts[k])].sort((x, y) => x - y);
+      let prev = nodeOf(lerp(a, b, ts[0]));
+      for (let m = 1; m < ts.length; m++) { const cur = nodeOf(lerp(a, b, ts[m])); link(prev, cur); prev = cur; }
+    });
+    // drop overhanging ends that don't close anything
+    for (let pruned = true; pruned;) {
+      pruned = false;
+      for (const [i, set] of adj) if (set.size < 2) { for (const j of set) adj.get(j).delete(i); adj.delete(i); pruned = true; }
+    }
+    if (!adj.size) return null;
+    const ang = (i, j) => Math.atan2(nodes[j].y - nodes[i].y, nodes[j].x - nodes[i].x);
+    const order = new Map();
+    for (const [i, set] of adj) order.set(i, [...set].sort((a, b) => ang(i, a) - ang(i, b)));
+    // trace every face of the line network
+    const seen = new Set(), faces = [];
+    for (const [u, list] of order) for (const v of list) {
+      if (seen.has(u + ',' + v)) continue;
+      const face = [];
+      let a = u, b = v, guard = 0;
+      while (!seen.has(a + ',' + b) && guard++ < 20000) {
+        seen.add(a + ',' + b); face.push(nodes[a]);
+        const nb = order.get(b), k = nb.indexOf(a);
+        const c = nb[(k - 1 + nb.length) % nb.length];
+        a = b; b = c;
+      }
+      let area = 0;
+      for (let i = 0; i < face.length; i++) area += cross(face[i], face[(i + 1) % face.length]);
+      faces.push({ face, area: area / 2 });
+    }
+    if (faces.length < 2) return null;
+    // the unbounded outside is traced the opposite way round to every enclosed area
+    const outer = faces.reduce((m, f) => (Math.abs(f.area) > Math.abs(m.area) ? f : m));
+    const inner = faces.filter(f => Math.sign(f.area) !== Math.sign(outer.area) && Math.abs(f.area) > 1);
+    if (!inner.length) return null;
+    return polygonClipping.union(...inner.map(f => [f.face.map(q => [q.x, q.y])]));
+  }
+
+  function makePolygon(cands) {
+    if (!window.polygonClipping) { toast('Unavailable: the geometry library did not load'); return; }
+    const lines = cands.filter(sh => sh.result && !sh.result.closed && sh.result.verts.length >= 2);
+    if (!lines.length) { toast('There are no open lines to turn into a polygon'); return; }
+    let out = null;
+    try { out = polygonize(lines, 1 / view.s); } catch (err) { out = null; }
+    if (!out || !out.length) { toast("These lines don't enclose an area. Make sure they meet or cross."); return; }
+    pushHistory();
+    const polys = out.map(poly => {
+      const rings = poly.map(ring => cleanRing(ring.slice(0, -1).map(([x, y]) => ({ x, y }))));
+      return {
+        raws: lines.flatMap(sh => sh.raws || [sh.raw]).filter(r => r && r.length), merged: true, fixed: true,
+        result: { verts: rings[0], holes: rings.slice(1), closed: true }
+      };
+    });
+    shapes = shapes.filter(sh => !lines.includes(sh)).concat(polys);
+    selected = polys.length === 1 ? polys[0] : null; group = []; lasso = null;
+    toast(`Made ${polys.length} polygon${polys.length === 1 ? '' : 's'} from ${lines.length} line${lines.length === 1 ? '' : 's'}`);
+    updateReadout(); requestDraw();
+  }
+
+  // ---------- merge overlapping ----------
+  function cleanRing(r) {
+    for (let changed = true; changed && r.length > 3;) {
+      changed = false;
+      for (let i = 0; i < r.length; i++) {
+        const a = r[mod(i - 1, r.length)], b = r[i], c = r[(i + 1) % r.length];
+        const ab = sub(b, a), bc = sub(c, b);
+        if (Math.hypot(ab.x, ab.y) < 0.5 || (Math.abs(cross(norm(ab), norm(bc))) < 1e-3 && dot(ab, bc) > 0)) {
+          r.splice(i, 1); changed = true; break;
+        }
+      }
+    }
+    return r;
+  }
+
+  function mergeShapes(subset) {
+    if (!window.polygonClipping) { toast('Merge is unavailable: the geometry library did not load'); return; }
+    const cands = (Array.isArray(subset) ? subset : workShapes()).filter(s => s.result && s.result.closed && s.result.verts.length >= 3);
+    if (cands.length < 2) { toast('Draw at least two closed shapes that overlap'); return; }
+    const geoms = cands.map(s => [s.result.verts, ...(s.result.holes || [])].map(r => r.map(p => [p.x, p.y])));
+    let out;
+    try { out = polygonClipping.union(...geoms); } catch (err) { toast('These shapes could not be merged'); return; }
+    if (out.length >= cands.length) { toast('No overlapping shapes to merge'); return; }
+    const groups = out.map(() => []);
+    cands.forEach((s, i) => {
+      const gi = out.findIndex(o => polygonClipping.intersection(geoms[i], o).length > 0);
+      groups[gi >= 0 ? gi : 0].push(s);
+    });
+    pushHistory();
+    const merged = out.map((poly, i) => {
+      if (groups[i].length === 1) return groups[i][0];
+      const rings = poly.map(ring => cleanRing(ring.slice(0, -1).map(([x, y]) => ({ x, y }))));
+      return {
+        raws: groups[i].flatMap(s => s.raws || [s.raw]), merged: true,
+        result: { verts: rings[0], holes: rings.slice(1), closed: true }
+      };
+    });
+    const multi = groups.filter(g => g.length > 1);
+    shapes = shapes.filter(s => !cands.includes(s)).concat(merged);
+    toast(`Merged ${multi.reduce((n, g) => n + g.length, 0)} shapes into ${multi.length}`);
+    updateReadout(); requestDraw();
+  }
+
+  // ---------- controls ----------
+  // Settings only shape what you draw next: every shape keeps the result it got when it was drawn,
+  // so this just refreshes the screen (lengths re-label when the unit changes).
+  const recomputeAll = () => { updateReadout(); requestDraw(); };
+  const history = [];
+  function pushHistory() { history.push({ shapes: shapes.slice(), annots: annots.slice() }); if (history.length > 100) history.shift(); }
+  const toast = msg => {
+    const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('show'), 1800);
+  };
+  function segGroup(id, key, parse) {
+    const g = document.getElementById(id);
+    g.addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      g.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
+      opts[key] = parse(b.dataset.v); recomputeAll();
+    });
+  }
+  segGroup('angles', 'step', Number);
+  segGroup('align', 'align', String);
+  function toggle(id, key) {
+    const b = document.getElementById(id);
+    b.addEventListener('click', () => {
+      opts[key] = !opts[key]; b.setAttribute('aria-pressed', String(opts[key]));
+      setCursor(); requestDraw();
+    });
+  }
+  toggle('tSketch', 'sketch'); toggle('tBg', 'bg'); toggle('tDims', 'dims'); toggle('tDebug', 'debug'); toggle('tPen', 'penOnly'); toggle('tSnapPts', 'snapPoints');
+  // Pan, Trim and Extend are modes; only one is on at a time
+  const modeBtn = { draw: 'tDraw', line: 'tLine', trim: 'tTrim', extend: 'tExtend', offset: 'tOffset', alignTool: 'tAlign', dim: 'tDim' };
+  const modeHint = {
+    draw: 'Draw is on. Tap Draw again (or press D) to stop.',
+    line: 'Line: tap points one after another. Tap the first point to close.',
+    trim: 'Trim: tap or drag across the part of a line to remove',
+    extend: 'Extend: tap a line end, or drag from one line to another to make them meet',
+    offset: 'Offset: tap each segment, then set a distance. Negative goes inward.',
+    alignTool: 'Align: tap an edge of the shape to move, then the line to line it up with',
+    dim: 'Dimension: draw across lines, tap two corners, or tap two lines for an angle'
+  };
+  function setMode(key, on) { opts[key] = on; document.getElementById(modeBtn[key]).setAttribute('aria-pressed', String(on)); }
+  for (const key of Object.keys(modeBtn)) document.getElementById(modeBtn[key]).addEventListener('click', () => {
+    const on = !opts[key];
+    offPicks = []; dimPending = null; extPending = null; linePts = []; alignPick = null; vertSel = null;
+    for (const k of Object.keys(modeBtn)) setMode(k, false);
+    setMode(key, on);
+    if (on) { selected = null; group = []; lasso = null; toast(modeHint[key]); }
+    setCursor(); updateReadout(); requestDraw();
+  });
+  document.getElementById('sPoly').addEventListener('click', () => { if (selected) makePolygon([selected]); });
+  document.getElementById('gPoly').addEventListener('click', () => makePolygon(group));
+  document.getElementById('polyAll').addEventListener('click', () => makePolygon(workShapes()));
+  document.getElementById('tol').addEventListener('input', e => { opts.tol = Number(e.target.value); recomputeAll(); });
+  const sqVal = document.getElementById('sqVal'), sqUnit = document.getElementById('sqUnit');
+  const roundInput = document.getElementById('roundTo');
+  const readUnits = () => {
+    const v = parseFloat(sqVal.value);
+    if (v > 0) sq.val = v;
+    sq.unit = sqUnit.value;
+    const r = parseFloat(roundInput.value);
+    opts.roundTo = r >= 0 ? r : 0;
+    opts.snapW = opts.roundTo > 0 ? opts.roundTo / sq.val * GRID : 0;
+    recomputeAll();
+  };
+  sqVal.addEventListener('input', readUnits); sqUnit.addEventListener('change', readUnits); roundInput.addEventListener('input', readUnits);
+  const undo = () => { if (!history.length) return; const h = history.pop(); shapes = h.shapes; annots = h.annots; recomputeAll(); };
+  document.getElementById('undo').addEventListener('click', undo);
+  document.getElementById('merge').addEventListener('click', () => mergeShapes());
+  document.getElementById('clear').addEventListener('click', () => {
+    if (!shapes.length && !annots.length) return;
+    pushHistory(); shapes = []; annots = []; selected = null; group = []; lasso = null; updateReadout(); requestDraw();
+  });
+
+  // ---------- layer panel ----------
+  const layerPanel = document.getElementById('layerPanel'), layerBtn = document.getElementById('tLayers');
+  function renderLayers() {
+    const tag = document.getElementById('layerTag');
+    tag.textContent = layerNow; tag.style.color = layerColor(layerNow);
+    const rows = document.getElementById('layerRows');
+    rows.innerHTML = '';
+    layers.forEach((l, i) => {
+      const n = i + 1, count = shapes.filter(sh => layerOf(sh) === n).length;
+      const row = document.createElement('div'); row.className = 'lp-row' + (l.on ? '' : ' off');
+      const pick = document.createElement('button'); pick.className = 'lp-pick'; pick.setAttribute('aria-pressed', String(n === layerNow));
+      const sw = document.createElement('span'); sw.className = 'lp-swatch'; sw.style.background = layerColor(n);
+      pick.append(sw, document.createTextNode(`${l.name}${count ? ` · ${count}` : ''}`));
+      pick.title = 'Draw on this layer';
+      pick.addEventListener('click', () => { layerNow = n; l.on = true; selected = null; group = []; lasso = null; offPicks = []; dimPending = null; extPending = null; linePts = []; renderLayers(); updateReadout(); requestDraw(); });
+      const eye = document.createElement('button'); eye.className = 'lp-eye'; eye.setAttribute('aria-pressed', String(l.on));
+      eye.textContent = l.on ? 'Shown' : 'Hidden';
+      eye.disabled = n === layerNow;   // the layer you're drawing on stays visible
+      eye.title = n === layerNow ? "The layer you're drawing on is always shown" : (l.on ? 'Hide this layer' : 'Show this layer');
+      eye.addEventListener('click', () => { l.on = !l.on; if (selected && !onWork(selected)) selected = null; renderLayers(); requestDraw(); postChanged(); });
+      row.append(pick, eye); rows.append(row);
+    });
+  }
+  layerBtn.addEventListener('click', () => {
+    const open = layerPanel.hidden;
+    layerPanel.hidden = !open; layerBtn.setAttribute('aria-expanded', String(open));
+    if (open) renderLayers();
+  });
+  const postChanged = () => { if (typeof notifyChanged === 'function') setTimeout(notifyChanged, 0); };
+
+  // ---------- drawing exchange format (see shared/CONTRACT.md) ----------
+  // CAD convention: real units from the grid setting, y axis pointing up
+  function exportDrawing() {
+    const k = sq.val / GRID;
+    const toUnits = ring => ring.map(p => [+(p.x * k).toFixed(4), +(-p.y * k).toFixed(4)]);
+    return {
+      format: 'emlid-sketch', version: 1, units: sq.unit, gridSquare: sq.val,
+      layers: layers.map(l => ({ name: l.name, on: l.on })),
+      shapes: shapes.filter(s => s.result).map(s => ({
+        layer: layerOf(s),
+        closed: s.result.closed,
+        vertices: toUnits(s.result.verts),
+        ...(s.result.holes && s.result.holes.length ? { holes: s.result.holes.map(toUnits) } : {})
+      }))
+    };
+  }
+  function importDrawing(data) {
+    if (!data || !Array.isArray(data.shapes)) return false;
+    if (Array.isArray(data.layers)) data.layers.slice(0, LAYER_COUNT).forEach((l, i) => { layers[i].on = l.on !== false; if (l.name) layers[i].name = String(l.name); });
+    layers[layerNow - 1].on = true;
+    if (data.units) { sq.unit = data.units; const u = document.getElementById('sqUnit'); if (u) u.value = data.units; }
+    if (data.gridSquare > 0) { sq.val = data.gridSquare; const g = document.getElementById('sqVal'); if (g) g.value = data.gridSquare; }
+    const k = sq.val / GRID;
+    const toWorldRing = ring => ring.map(([x, y]) => ({ x: x / k, y: -y / k }));
+    pushHistory();
+    shapes = data.shapes.filter(sh => Array.isArray(sh.vertices) && sh.vertices.length >= 2).map(sh => ({
+      raw: [], px: 1, fixed: true, layer: sh.layer >= 1 && sh.layer <= LAYER_COUNT ? sh.layer : 1,
+      result: { verts: toWorldRing(sh.vertices), closed: !!sh.closed, holes: (sh.holes || []).map(toWorldRing) }
+    }));
+    annots = []; selected = null; group = []; lasso = null;
+    updateReadout(); requestDraw();
+    return true;
+  }
+
+  document.getElementById('copy').addEventListener('click', () => {
+    const data = exportDrawing();
+    const text = JSON.stringify(data, null, 2);
+    const ok = () => toast('Copied ' + data.shapes.length + ' shape' + (data.shapes.length === 1 ? '' : 's') + ' as JSON');
+    const fallback = () => {
+      readout.innerHTML = '<pre style="margin:0;white-space:pre-wrap;user-select:text;max-height:40vh;overflow:auto">' +
+        text.replace(/</g, '&lt;') + '</pre>';
+      readout.style.pointerEvents = 'auto';
+      toast('Clipboard blocked. JSON shown below; select and copy it.');
+    };
+    try { navigator.clipboard.writeText(text).then(ok, fallback); } catch { fallback(); }
+  });
+
+  // ---------- theme ----------
+  const mq = matchMedia('(prefers-color-scheme: dark)');
+  const retheme = () => { readColors(); requestDraw(); };
+  mq.addEventListener ? mq.addEventListener('change', retheme) : mq.addListener(retheme);
+  new MutationObserver(retheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  // ---------- example strokes ----------
+  function wobbly(poly, closed, seed) {
+    let s = seed;
+    const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280 - 0.5; };
+    const path = closed ? poly.concat([poly[0]]) : poly;
+    let pts = [];
+    for (let i = 0; i < path.length - 1; i++) {
+      const a = path[i], b = path[i + 1], L = dist(a, b), n = Math.max(2, Math.round(L / 6));
+      const bow = rnd() * L * 0.05;
+      for (let j = 0; j < n; j++) {
+        const t = j / n, bend = Math.sin(t * Math.PI) * bow, d = norm(sub(b, a));
+        pts.push({ x: a.x + (b.x - a.x) * t - d.y * bend + rnd() * 2.5, y: a.y + (b.y - a.y) * t + d.x * bend + rnd() * 2.5 });
+      }
+    }
+    pts.push({ ...path[path.length - 1] });
+    for (let k = 0; k < 2; k++) pts = smooth(pts);
+    if (closed) pts.push({ x: pts[0].x + 9, y: pts[0].y + 5 }); // imperfect close
+    return pts;
+  }
+  function loadExamples() {
+    const r = stage.getBoundingClientRect();
+    const sc = Math.min(0.75, r.width / 1100), ox = Math.max(24, r.width * 0.06), oy = 70;
+    const P = (x, y) => ({ x: ox + x * sc, y: oy + y * sc });
+    // hand-drawn L with loose rounded corners and an overshooting close
+    const lShape = [[557,203],[600,207],[655,228],[695,260],[707,300],[700,340],[690,390],[692,430],[720,462],[770,473],
+      [890,472],[965,478],[985,495],[1000,530],[998,580],[985,630],[970,675],[940,705],[880,718],[800,722],[700,715],
+      [600,710],[510,707],[450,703],[415,690],[390,655],[378,620],[373,570],[378,500],[388,430],[391,350],[388,270],
+      [382,230],[378,205],[390,193],[430,200],[490,198],[540,196],[580,200],[605,210],[622,219]]
+      .map(([x, y]) => P(x - 370, y - 190));
+    let lRaw = resample(lShape, 5);
+    for (let k = 0; k < 3; k++) lRaw = smooth(lRaw);
+    shapes.push({ raw: lRaw, px: 1, result: recognizeAt(lRaw, opts, 1), example: true });
+    // plate with two 45° chamfers
+    const plate = [P(740, 20), P(960, 20), P(1020, 80), P(1020, 260), P(800, 260), P(740, 200)]
+      .map((p, i) => ({ x: p.x + [5, -6, 4, -5, 6, -4][i], y: p.y + [-5, 4, -6, 5, -3, 6][i] }));
+    const pRaw = wobbly(plate, true, 11);
+    shapes.push({ raw: pRaw, px: 1, result: recognizeAt(pRaw, opts, 1), example: true });
+  }
+
+  // ---------- survey background from a host (display only, in local drawing units, y up) ----------
+  let background = null;   // { lines: [{ closed, vertices }], points: [[x, y, name]] }
+  function drawBackground() {
+    if (!background || !opts.bg) return;
+    const k = sq.val / GRID, S = ([x, y]) => toScreen({ x: x / k, y: -y / k });
+    ctx.save();
+    ctx.globalAlpha = refPick ? 0.9 : 0.4; ctx.strokeStyle = refPick ? colors.vertex : colors.muted; ctx.lineWidth = refPick ? 2.5 : 1.25; ctx.lineJoin = 'round'; ctx.setLineDash([]);
+    for (const l of background.lines || []) {
+      if (!l.vertices || l.vertices.length < 2) continue;
+      const pts = l.vertices.map(S);
+      ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y));
+      if (l.closed) ctx.closePath();
+      ctx.stroke();
+    }
+    ctx.lineWidth = 1;
+    for (const p of background.points || []) {
+      const q = S(p);
+      ctx.beginPath(); ctx.moveTo(q.x - 3, q.y - 3); ctx.lineTo(q.x + 3, q.y + 3); ctx.moveTo(q.x - 3, q.y + 3); ctx.lineTo(q.x + 3, q.y - 3); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // ---------- grid reference line (host asks with pickReference; see shared/CONTRACT.md) ----------
+  let refPick = false;
+  function refTap(tapS) {
+    const w = toWorld(tapS), reach = 26 / view.s;
+    let best = null, bd = reach;
+    for (const [a, b] of bgSegments()) { const d = segDist(w, a, b); if (d < bd) { bd = d; best = [a, b]; } }
+    if (!best) { toast('Tap one of the survey lines'); return; }
+    const k = sq.val / GRID, loc = q => [+(q.x * k).toFixed(6), +(-q.y * k).toFixed(6)];
+    refPick = false;
+    post({ type: 'reference', a: loc(best[0]), b: loc(best[1]) });
+    requestDraw();
+  }
+  document.getElementById('refSkip').addEventListener('click', () => { refPick = false; post({ type: 'referenceCancelled' }); requestDraw(); });
+
+  // ---------- bridge: when another component embeds this page in an iframe ----------
+  // Messages are plain objects tagged { protocol: 'emlid-sketch', type, ... }. See shared/CONTRACT.md.
+  const embedded = window.parent !== window;
+  const post = msg => { if (embedded) window.parent.postMessage({ protocol: 'emlid-sketch', version: 1, ...msg }, '*'); };
+  let lastSent = '';
+  function notifyChanged() {
+    if (!embedded) return;
+    const drawing = exportDrawing(), text = JSON.stringify(drawing);
+    if (text === lastSent) return;
+    lastSent = text;
+    post({ type: 'changed', drawing });
+  }
+  window.addEventListener('message', e => {
+    if (e.source !== window.parent) return;
+    const m = e.data;
+    if (!m || m.protocol !== 'emlid-sketch') return;
+    if (m.type === 'load') { importDrawing(m.drawing); lastSent = JSON.stringify(exportDrawing()); post({ type: 'loaded', id: m.id }); }
+    else if (m.type === 'get') post({ type: 'drawing', id: m.id, drawing: exportDrawing() });
+    else if (m.type === 'background') {
+      const first = !background;
+      background = m.background || null;
+      if (first && background && !shapes.length) fitAll();   // show the survey when there is nothing drawn yet
+      requestDraw();
+    }
+    else if (m.type === 'fit') fitAll();
+    else if (m.type === 'pickReference') {
+      if (bgSegments().length) { refPick = true; for (const k of Object.keys(modeBtn)) setMode(k, false); setCursor(); requestDraw(); }
+      else post({ type: 'referenceCancelled', reason: 'no-lines' });
+    }
+    else if (m.type === 'cancelReference') { refPick = false; requestDraw(); }
+    else if (m.type === 'clear') { pushHistory(); shapes = []; annots = []; selected = null; updateReadout(); requestDraw(); }
+  });
+
+  readColors();
+  setCursor();
+  new ResizeObserver(resize).observe(stage);
+  resize();
+  if (!embedded) loadExamples();   // a host component supplies its own drawing
+  updateReadout(); draw();
+  post({ type: 'ready' });
+  if (document.fonts) document.fonts.ready.then(() => requestDraw());
+})();
+</script>
