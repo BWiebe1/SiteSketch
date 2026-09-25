@@ -15,7 +15,7 @@
   body > header { padding-top: calc(8px + env(safe-area-inset-top, 0px)); }
 </style>
 <title>Site Sketch</title>
-<meta name="app-version" content="1.3.0">
+<meta name="app-version" content="1.3.1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;500;600&display=swap">
 <style>
@@ -47,7 +47,7 @@
   body {
     background: var(--paper); color: var(--ink); margin: 0;
     font-family: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
-    display: grid; grid-template-rows: auto 1fr; overflow: hidden;
+    display: grid; grid-template-rows: auto 1fr; grid-template-columns: minmax(0, 1fr); overflow: hidden;   /* never wider than the screen */
     -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
   }
   input, select { -webkit-user-select: text; user-select: text; }
@@ -139,12 +139,15 @@
   #more { display: none; min-width: 44px; font-size: 18px; line-height: 1; }
   #hidePanel { min-height: 30px; padding: 2px 10px; font-size: 13px; }
   /* ---------- phones: compact header with a ⋯ menu; the steps panel is a bottom sheet you can hide ---------- */
-  @media (max-width: 640px) {
+  /* phones, upright or turned sideways (a sideways phone is wide but short) */
+  @media (max-width: 640px), (max-height: 500px) {
     header { padding-inline: 10px; flex-wrap: nowrap; gap: 8px; }
     .brand { gap: 8px; margin-right: 0; }
     .mark { width: 30px; height: 30px; }
     h1 { font-size: 20px; letter-spacing: 0.03em; }
     .by { display: none; }
+    .brand { flex: 0 1 auto; min-width: 0; }
+    h1 { overflow: hidden; text-overflow: ellipsis; }
     #tabGeo { font-size: 0; }
     #tabGeo::after { content: 'Georef'; font-size: 14px; }
     #more { display: inline-block; }
@@ -166,6 +169,13 @@
     .viewctl { top: 8px; right: 8px; }
   }
   @media (pointer: coarse) { header button, .panel button, .sheet button { min-height: 42px; } }
+  /* small iPhones and Display Zoom (320-360 px wide): a tighter top bar so everything stays on screen */
+  @media (max-width: 360px) {
+    header { gap: 6px; padding-inline: 8px; }
+    .mark { width: 26px; height: 26px; }
+    h1 { font-size: 18px; letter-spacing: 0.02em; }
+    header > .seg button { padding-inline: 9px; }
+  }
 </style>
 
 <header>
