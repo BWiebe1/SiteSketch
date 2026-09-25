@@ -4378,7 +4378,7 @@
   }
 
   // ---------- survey background from a host (display only, in local drawing units, y up) ----------
-  let background = null;   // { lines: [{ closed, vertices }], points: [[x, y, name]] }
+  let background = null;   // { lines: [{ closed, vertices }], points: [[x, y, name]], gridLine?: [[x, y], [x, y]] }
   function drawBackground() {
     if (!background || !opts.bg) return;
     const k = sq.val / GRID, S = ([x, y]) => toScreen({ x: x / k, y: -y / k });
@@ -4395,6 +4395,15 @@
     for (const p of background.points || []) {
       const q = S(p);
       ctx.beginPath(); ctx.moveTo(q.x - 3, q.y - 3); ctx.lineTo(q.x + 3, q.y + 3); ctx.moveTo(q.x - 3, q.y + 3); ctx.lineTo(q.x + 3, q.y - 3); ctx.stroke();
+    }
+    // the survey line the grid was set from: a light orange band with a dashed centre line
+    const gl = background.gridLine;
+    if (gl && gl.length === 2) {
+      const a = S(gl[0]), b = S(gl[1]);
+      ctx.strokeStyle = colors.vertex; ctx.lineCap = 'round';
+      ctx.globalAlpha = 0.18; ctx.lineWidth = 9; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      ctx.globalAlpha = 0.85; ctx.lineWidth = 1.75; ctx.setLineDash([8, 6]); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      ctx.setLineDash([]);
     }
     ctx.restore();
   }

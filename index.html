@@ -15,7 +15,7 @@
   body > header { padding-top: calc(8px + env(safe-area-inset-top, 0px)); }
 </style>
 <title>Site Sketch</title>
-<meta name="app-version" content="1.11.1">
+<meta name="app-version" content="1.11.2">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;500;600&display=swap">
 <style>
@@ -1125,7 +1125,8 @@
       const toLocal = w => { const x = w.e - G.T.e, y = w.n - G.T.n; return [+((c * x + si * y) / s).toFixed(4), +((-si * x + c * y) / s).toFixed(4)]; };
       bg = {
         lines: G.survey.filter(f => f.kind === 'line').map(f => ({ closed: !!f.closed, vertices: f.pts.map(toLocal) })),
-        points: G.survey.filter(f => f.kind === 'point').map(f => [...toLocal(f.pts[0]), f.name || ''])
+        points: G.survey.filter(f => f.kind === 'point').map(f => [...toLocal(f.pts[0]), f.name || '']),
+        ...(G.refLine && G.refLine.A && G.refLine.B ? { gridLine: [toLocal(G.refLine.A), toLocal(G.refLine.B)] } : {})
       };
     }
     const text = JSON.stringify(bg);
