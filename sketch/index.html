@@ -235,7 +235,7 @@
     }
     /* every tool fits in one row: the buttons share the width equally */
     .viewctl {
-      display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 2px;   /* columns may shrink below a button's padding */
+      display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px;   /* columns may shrink below a button's padding */
       padding: 4px 4px calc(4px + env(safe-area-inset-bottom, 0px)); overflow-x: visible;
     }
     :root { --bar-h: 104px; }   /* two rows of 46 px buttons, gap and padding */
@@ -267,7 +267,7 @@
   }
   /* a sideways phone: all twelve tools in one row */
   @media (max-height: 500px) and (min-width: 641px) {
-    .viewctl { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+    .viewctl { grid-template-columns: repeat(13, minmax(0, 1fr)); }
     :root { --bar-h: 56px; }
   }
   @media (pointer: coarse) {
@@ -359,6 +359,7 @@
   <canvas id="cv"></canvas>
   <div class="viewctl">
     <div class="seg">
+      <button id="tSelect" aria-pressed="false" title="Select: tap a shape, or draw a loop around several to select them together" aria-label="Select"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 9.5c0-3.3-3.8-6-8.5-6s-8.5 2.7-8.5 6c0 1.6.9 3 2.3 4.1" stroke-dasharray="2 2.2"/><path d="M9.5 10.5l4 10 1.6-3.9 3.9-1.6z"/></svg></button>
       <button id="tDraw" aria-pressed="false" title="Sketch shapes, circle to select, scribble to delete (D key). When off, dragging moves the view and taps select." aria-label="Draw"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1.2-4.6L15.6 5l3.4 3.4L8.6 18.8z"/><path d="M13.4 7.2l3.4 3.4"/></svg></button>
       <button id="tShapes" aria-pressed="false" aria-expanded="false" aria-controls="shapePop" title="Shapes: straight lines point to point, rectangles and circles" aria-label="Shapes"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="9.5" width="10" height="10"/><circle cx="15.5" cy="8.5" r="5"/></svg></button>
       <button id="tErase" aria-pressed="false" title="Eraser: drag over shapes or dimensions to remove them" aria-label="Eraser"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 20h11"/><path d="M4.7 14.6l9.1-9.1a2 2 0 0 1 2.8 0l3.2 3.2a2 2 0 0 1 0 2.8L12.2 19.1a2 2 0 0 1-1.4.6H8.7a2 2 0 0 1-1.4-.6l-2.6-2.6a1.3 1.3 0 0 1 0-1.9z"/><path d="M9.3 10.2l5.6 5.6"/></svg></button>
@@ -487,8 +488,8 @@
   const stage = document.getElementById('stage');
   const readout = document.getElementById('readout');
 
-  const opts = { step: 45, align: 'screen', tol: 5, sketch: true, dims: true, debug: false, penOnly: false, hand: false, trim: false, roundTo: 1, snapW: GRID, snapPoints: true, extend: false, offset: false, draw: false, dim: false, line: false, bg: true, alignTool: false, rect: false, circle: false, erase: false, fillet: false, idleOff: 8 };
-  const editTool = () => opts.trim || opts.extend || opts.offset || opts.dim || opts.alignTool || opts.rect || opts.circle || opts.erase || opts.fillet;   // these modes don't sketch freehand
+  const opts = { step: 45, align: 'screen', tol: 5, sketch: true, dims: true, debug: false, penOnly: false, hand: false, trim: false, roundTo: 1, snapW: GRID, snapPoints: true, extend: false, offset: false, draw: false, dim: false, line: false, bg: true, alignTool: false, rect: false, circle: false, erase: false, fillet: false, selectLoop: false, idleOff: 8 };
+  const editTool = () => opts.trim || opts.extend || opts.offset || opts.dim || opts.alignTool || opts.rect || opts.circle || opts.erase || opts.fillet || opts.selectLoop;   // these modes don't sketch freehand
   const shapeTool = () => opts.rect || opts.circle || opts.erase;   // Rectangle, Circle and Eraser: press, drag, release
   let annots = [];      // dimension lines: { a: anchor, b: anchor }, anchors point at an edge of a shape by id
   let shapes = [];
@@ -3090,6 +3091,7 @@
       return;
     }
     if (opts.fillet) { if (len <= 6) filletTap(screenPts[0]); else toast('Tap a corner to round it'); return; }
+    if (opts.selectLoop && len > 6) { loopSelect(screenPts); return; }   // a tap falls through to the usual tap-to-select
     if (opts.dim) { dimTool(screenPts, len); return; }
     if (!opts.draw) len = 0;
     if (len <= 6) {
@@ -3143,6 +3145,19 @@
   }
 
   // a loop that goes around whole shapes selects them instead of becoming a new shape
+  // Select tool: whatever lies (mostly) inside the loop, closed or not; one shape gets its own toolbar
+  function loopSelect(screenPts) {
+    const raw = screenPts.map(toWorld);
+    const inside = workShapes().filter(s => {
+      const pts = shapePoints(s);
+      return pts.length && pts.filter(p => inRing(p, raw)).length >= pts.length * 0.85;
+    });
+    segSel = null; vertSel = null;
+    if (!inside.length) { toast('Nothing inside the loop. Draw around the shapes you want.'); requestDraw(); return; }
+    if (inside.length === 1) { selected = inside[0]; group = []; lasso = null; }
+    else { selected = null; group = inside; lasso = { raw, px: 1 / view.s }; toast(`${inside.length} shapes selected`); }
+    updateReadout(); requestDraw();
+  }
   function lassoed(raw, screenPts, px) {
     const b = bboxOf(screenPts), diag = Math.hypot(b.maxX - b.minX, b.maxY - b.minY);
     if (dist(screenPts[0], screenPts[screenPts.length - 1]) > Math.max(40, diag * 0.25)) return false;
@@ -3834,7 +3849,7 @@
   }
   toggle('tSketch', 'sketch'); toggle('tBg', 'bg'); toggle('tDims', 'dims'); toggle('tDebug', 'debug'); toggle('tPen', 'penOnly'); toggle('tSnapPts', 'snapPoints');
   // Pan, Trim and Extend are modes; only one is on at a time
-  const modeBtn = { draw: 'tDraw', line: 'tLine', rect: 'tRect', circle: 'tCircle', erase: 'tErase', fillet: 'tFillet', trim: 'tTrim', extend: 'tExtend', offset: 'tOffset', alignTool: 'tAlign', dim: 'tDim' };
+  const modeBtn = { selectLoop: 'tSelect', draw: 'tDraw', line: 'tLine', rect: 'tRect', circle: 'tCircle', erase: 'tErase', fillet: 'tFillet', trim: 'tTrim', extend: 'tExtend', offset: 'tOffset', alignTool: 'tAlign', dim: 'tDim' };
   const modeHint = {
     draw: 'Draw is on. Tap Draw again (or press D) to stop.',
     line: 'Line: tap points one after another. Tap the first point to close.',
@@ -3842,6 +3857,7 @@
     circle: 'Circle: tap the centre to type a radius, or drag out from the centre',
     erase: 'Eraser: drag over shapes or dimensions to remove them',
     fillet: 'Round: tap a corner, then drag to size the curve or type the radius',
+    selectLoop: 'Select: tap a shape, or draw a loop around several. Two fingers move the view.',
     trim: 'Trim: tap or drag across the part of a line to remove',
     extend: 'Extend: tap a line end, or drag from one line to another to make them meet',
     offset: 'Offset: tap each segment, then set a distance. Negative goes inward.',
