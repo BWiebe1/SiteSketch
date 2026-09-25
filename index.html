@@ -15,7 +15,7 @@
   body > header { padding-top: calc(8px + env(safe-area-inset-top, 0px)); }
 </style>
 <title>Site Sketch</title>
-<meta name="app-version" content="1.10.0">
+<meta name="app-version" content="1.10.1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;500;600&display=swap">
 <style>
@@ -351,7 +351,7 @@
     view: null, fmt: 'csv', scope: 'new', outName: ''
   };
   const KEY = 'emlid.georef.v1';
-  const PERSIST = ['drawing', 'survey', 'header', 'cs', 'file', 'gridUnit', 'T', 'geo', 'placed', 'view', 'fmt', 'scope', 'outName'];
+  const PERSIST = ['drawing', 'survey', 'header', 'cs', 'file', 'gridUnit', 'T', 'geo', 'placed', 'view', 'fmt', 'scope', 'outName', 'refLine'];
   function save() { try { const o = {}; for (const k of PERSIST) o[k] = G[k]; localStorage.setItem(KEY, JSON.stringify(o)); } catch (e) { /* keep going in memory */ } }
   function load() { try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (o) Object.assign(G, o); } catch (e) {} }
   load();
@@ -981,6 +981,19 @@
     if (G.view.k > 8) {
       ctx.fillStyle = colors.muted; ctx.font = '11px "IBM Plex Mono", ui-monospace, monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
       for (const f of G.survey) if (f.kind === 'point' && f.name) { const q = toS(f.pts[0]); ctx.fillText(f.name, q.x + 6, q.y - 4); }
+    }
+    // the survey line the grid was turned to stays marked
+    if (G.refLine && G.refLine.A && G.refLine.B) {
+      const a = G.refLine.A, b = G.refLine.B;
+      ctx.save(); ctx.strokeStyle = colors.pick; ctx.lineCap = 'round';
+      ctx.globalAlpha = 0.35; ctx.lineWidth = 10; strokeLine([a, b], false);
+      ctx.globalAlpha = 1; ctx.lineWidth = 2.5; strokeLine([a, b], false);
+      const qa = toS(a), qb = toS(b), mx = (qa.x + qb.x) / 2, my = (qa.y + qb.y) / 2;
+      ctx.font = '600 11px "IBM Plex Mono", ui-monospace, monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const text = 'Grid line', tw = ctx.measureText(text).width + 10;
+      ctx.fillStyle = colors.panel; ctx.fillRect(mx - tw / 2, my - 18, tw, 16);
+      ctx.fillStyle = colors.pick; ctx.fillText(text, mx, my - 10);
+      ctx.restore();
     }
     // the drawing, placed by T
     ctx.strokeStyle = colors.shape; ctx.lineWidth = 2.5; ctx.lineJoin = 'miter';
