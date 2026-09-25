@@ -237,8 +237,14 @@
       flex-wrap: nowrap; justify-content: flex-start; gap: 6px; overflow-x: auto; -webkit-overflow-scrolling: touch;
     }
     /* every tool fits in one row: the buttons share the width equally */
+    header { padding: 0; border-bottom: 0; min-height: 0; }   /* no row under the app bar: everything is in the tool bar */
+    #tSettings { display: inline-flex; }
+    .settings {
+      position: fixed; top: auto; bottom: calc(var(--bar-h) + 4px + env(safe-area-inset-bottom, 0px)); left: 8px; right: 8px;
+      border: 1px solid var(--line); border-radius: 8px; max-height: 60vh; z-index: 9;
+    }
     .viewctl {
-      display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px;   /* columns may shrink below a button's padding */
+      display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 2px;   /* columns may shrink below a button's padding */
       padding: 4px 4px calc(4px + env(safe-area-inset-bottom, 0px)); overflow-x: visible;
     }
     :root { --bar-h: 104px; }   /* two rows of 46 px buttons, gap and padding */
@@ -270,7 +276,7 @@
   }
   /* a sideways phone: all twelve tools in one row */
   @media (max-height: 500px) and (min-width: 641px) {
-    .viewctl { grid-template-columns: repeat(13, minmax(0, 1fr)); }
+    .viewctl { grid-template-columns: repeat(16, minmax(0, 1fr)); }
     :root { --bar-h: 56px; }
   }
   @media (pointer: coarse) {
@@ -346,15 +352,9 @@
     </div>
   </div>
     <div class="group">
+      <button class="action danger" id="clear" title="Remove everything on the sheet (Undo brings it back)">Clear drawing</button>
       <button class="action" id="polyAll" title="Turn every set of lines that encloses an area into a polygon">Polygon from lines</button>
     </div>
-  </div>
-  <div class="spacer"></div>
-  <div class="group">
-    <button class="action icon" id="undo" title="Undo (Ctrl+Z)" aria-label="Undo" disabled><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 5L4 9.5 8.5 14"/><path d="M4 9.5h10a5.5 5.5 0 0 1 0 11h-4"/></svg></button>
-    <button class="action icon" id="redo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 5L20 9.5 15.5 14"/><path d="M20 9.5H10a5.5 5.5 0 0 0 0 11h4"/></svg></button>
-    <button class="action" id="clear">Clear</button>
-    <button class="action" id="tSettings" aria-expanded="false" aria-controls="settings">Settings</button>
   </div>
 </header>
 
@@ -381,6 +381,11 @@
       <button id="zIn" aria-label="Zoom in">+</button>
     </div>
     <button class="action" id="zFit" title="Zoom to show every shape" aria-label="Fit"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button>
+    <div class="seg">
+      <button class="action icon" id="undo" title="Undo (Ctrl+Z)" aria-label="Undo" disabled><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 5L4 9.5 8.5 14"/><path d="M4 9.5h10a5.5 5.5 0 0 1 0 11h-4"/></svg></button>
+      <button class="action icon" id="redo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" disabled><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 5L20 9.5 15.5 14"/><path d="M20 9.5H10a5.5 5.5 0 0 0 0 11h4"/></svg></button>
+    </div>
+    <button class="action" id="tSettings" aria-expanded="false" aria-controls="settings" title="Settings: angles, corners, grid, units, snapping, and Clear drawing" aria-label="Settings"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M18 7h2M4 17h2M11 17h9"/><circle cx="15.5" cy="7" r="2.3"/><circle cx="8.5" cy="17" r="2.3"/></svg></button>
   </div>
   <div class="shapepop" id="shapePop" hidden role="menu" aria-label="Shapes">
     <button id="tLine" role="menuitemcheckbox" aria-pressed="false" title="Tap corners or grid points one after another to draw lines between them. Tap the first point to close the shape."><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="18.5" r="2.2"/><circle cx="19" cy="5.5" r="2.2"/><path d="M6.7 16.9L17.3 7.1"/></svg><span>Line</span></button>
@@ -3042,7 +3047,14 @@
   const settingsEl = document.getElementById('settings'), settingsBtn = document.getElementById('tSettings');
   const shapePop = document.getElementById('shapePop'), shapesBtn = document.getElementById('tShapes');
   const setSettings = open => { settingsEl.classList.toggle('open', open); settingsBtn.setAttribute('aria-expanded', String(open)); };
-  settingsBtn.addEventListener('click', () => setSettings(!settingsEl.classList.contains('open')));
+  settingsBtn.addEventListener('click', () => {
+    const open = !settingsEl.classList.contains('open');
+    setSettings(open);
+    if (open) {
+      if (!shapePop.hidden) { shapePop.hidden = true; shapesBtn.setAttribute('aria-expanded', 'false'); }
+      if (!layerPanel.hidden) { layerPanel.hidden = true; layerBtn.setAttribute('aria-expanded', 'false'); }
+    }
+  });
   cv.addEventListener('pointerdown', e => {
     stopIdle();
     if (!layerPanel.hidden) { layerPanel.hidden = true; layerBtn.setAttribute('aria-expanded', 'false'); }
