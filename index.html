@@ -15,7 +15,7 @@
   body > header { padding-top: calc(8px + env(safe-area-inset-top, 0px)); }
 </style>
 <title>Site Sketch</title>
-<meta name="app-version" content="1.11.0">
+<meta name="app-version" content="1.11.1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;500;600&display=swap">
 <style>
@@ -242,14 +242,6 @@
         <p id="s0text">Tap a survey line to turn the grid to it.</p>
         <div class="row">
           <button class="action" id="gridPickBtn">Set from a survey line</button>
-        </div>
-      </div>
-      <div class="step" id="turnStep">
-        <h2>Turn</h2>
-        <p id="turnText">Turns the drawing a quarter turn.</p>
-        <div class="row">
-          <button class="action" id="rotL" title="Turn 90° counter-clockwise">↺ 90°</button>
-          <button class="action" id="rotR" title="Turn 90° clockwise">↻ 90°</button>
         </div>
       </div>
       <div class="step">
@@ -1067,24 +1059,7 @@
     if (!G.refLine && hasSurveyLines()) toast('Tap Set from a survey line first');
     return;
   }
-  // quarter turns keep whatever is already fixed: the positioned corner, or the aligned edge's middle
-  function turnPivot() {
-    if (G.step > 2 && G.pk.sPt) return { p: G.pk.sPt, why: 'the corner you positioned' };
-    const al = G.pk.aligned;
-    if (al) { const a = fwd(al.dEdge.a), b = fwd(al.dEdge.b); return { p: { e: (a.e + b.e) / 2, n: (a.n + b.n) / 2 }, why: 'the middle of the aligned edge' }; }
-    const bb = bboxOf(drawWorld().flatMap(l => l.pts));
-    return bb.ok ? { p: { e: (bb.min.e + bb.max.e) / 2, n: (bb.min.n + bb.max.n) / 2 }, why: 'the middle of the drawing' } : null;
-  }
-  function quarterTurn(dir) {
-    const pv = turnPivot();
-    if (!pv || !G.survey.length) return toast('Load a survey and draw something first');
-    pushUndo();
-    rotateT(dir * Math.PI / 2, pv.p);
-    save(); refresh();
-  }
   $('gridPickBtn').addEventListener('click', () => { if (!G.survey.length) return toast('Load a survey first'); if (G.gridPick) { G.gridPick = false; refresh(); } else startGridPick(); });
-  $('rotL').addEventListener('click', () => quarterTurn(1));
-  $('rotR').addEventListener('click', () => quarterTurn(-1));
   // the steps panel closes on Done; the "Georeferenced · Edit" button brings it back
   function setPanel(open) {
     $('panel').hidden = !open; $('reopen').hidden = open;
@@ -1167,8 +1142,6 @@
     $('gridPickBtn').textContent = G.gridPick ? 'Cancel' : G.refLine ? 'Pick another line' : 'Set from a survey line';
     $('gridPickBtn').disabled = !hasSurveyLines();
     $('step0').className = 'step' + (G.gridPick ? ' current' : G.refLine ? ' done' : '');
-    const pv = turnPivot();
-    $('turnText').textContent = pv ? `Turns a quarter turn about ${pv.why}.` : 'Turns the drawing a quarter turn.';
     $('geoBadge').hidden = !G.geo;
     const nl = G.survey.filter(f => f.kind === 'line').length;
     const info = G.survey.length ? `${G.file}: ${G.survey.length - nl} points, ${nl} lines${G.cs ? ' · ' + G.cs : ''}` : 'No survey loaded yet.';
