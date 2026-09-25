@@ -2,20 +2,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Site Sketch">
-<meta name="theme-color" content="#f8faf9" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#172023" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#13314f" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e2236" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
 <style>
-  /* full screen on the phone: keep clear of the notch, status bar and home indicator */
-  body { box-sizing: border-box; padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
+  /* full screen on the phone: the navy app bar runs up under the status bar; content stays clear of the notch and home indicator */
+  body { box-sizing: border-box; padding: 0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
+  body > header { padding-top: calc(8px + env(safe-area-inset-top, 0px)); }
 </style>
 <title>Site Sketch</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;500;600&display=swap">
 <style>
   /* also served as a plain file (embedded), so it carries its own copy of this reset */
   [hidden] { display: none !important; }
@@ -23,6 +24,7 @@
     --paper: #eef2f1; --panel: #f8faf9; --ink: #1b2a2f; --muted: #5f6f73; --line: #d3dcda;
     --grid: #dfe6e4; --shape: #1d4f7a; --survey: #6b7f86; --pick: #d2551c; --ok: #2e7a58;
     --btn-on: #1d4f7a; --btn-on-ink: #ffffff; --focus: #d2551c;
+    --brand: #13314f; --brand-ink: #f4f7f6; --brand-muted: #9fb3c4; --brand-line: rgba(244, 247, 246, 0.28); --accent: #f26a21;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
@@ -30,6 +32,7 @@
       --paper: #11181a; --panel: #172023; --ink: #dbe5e3; --muted: #8fa0a2; --line: #28353a;
       --grid: #1a2427; --shape: #74b4e3; --survey: #8a9ca1; --pick: #ff8c52; --ok: #6fd1a4;
       --btn-on: #74b4e3; --btn-on-ink: #0d1416; --focus: #ff8c52;
+    --brand: #0e2236; --brand-ink: #e6eef0; --brand-muted: #8aa1b3; --brand-line: rgba(230, 238, 240, 0.22); --accent: #ff7a33;
     }
   }
   :root[data-theme="dark"] {
@@ -37,6 +40,7 @@
     --paper: #11181a; --panel: #172023; --ink: #dbe5e3; --muted: #8fa0a2; --line: #28353a;
     --grid: #1a2427; --shape: #74b4e3; --survey: #8a9ca1; --pick: #ff8c52; --ok: #6fd1a4;
     --btn-on: #74b4e3; --btn-on-ink: #0d1416; --focus: #ff8c52;
+    --brand: #0e2236; --brand-ink: #e6eef0; --brand-muted: #8aa1b3; --brand-line: rgba(230, 238, 240, 0.22); --accent: #ff7a33;
   }
   html, body { height: 100%; overscroll-behavior: none; }
   body {
@@ -47,11 +51,27 @@
   }
   input, select { -webkit-user-select: text; user-select: text; }
   button, input, select, label { touch-action: manipulation; }
+  /* app bar: survey navy with a stake-orange rule, like flagging tape on a hub */
   header {
-    position: relative; z-index: 10; background: var(--panel); border-bottom: 1px solid var(--line);
+    position: relative; z-index: 10; background: var(--brand); color: var(--brand-ink); border-bottom: 3px solid var(--accent);
     display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding-block: 8px; padding-inline: 16px;
   }
-  h1 { font-size: 17px; font-weight: 600; margin: 0; }
+  .brand { display: flex; align-items: center; gap: 10px; min-width: 0; margin-right: 6px; }
+  .mark { width: 34px; height: 34px; flex: none; display: block; }
+  .wm { display: grid; line-height: 1; }
+  h1 {
+    font-family: "Barlow Condensed", "IBM Plex Sans Condensed", "Arial Narrow", sans-serif; font-weight: 600;
+    font-size: 23px; letter-spacing: 0.05em; text-transform: uppercase; margin: 0; white-space: nowrap;
+  }
+  .by { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 10.5px; letter-spacing: 0.03em; color: var(--brand-muted); margin-top: 3px; white-space: nowrap; }
+  header > .seg { border-color: var(--brand-line); }
+  header > .seg button, header > .action, .hactions > button { color: var(--brand-ink); }
+  header > .seg button + button { border-left-color: var(--brand-line); }
+  header > .seg button[aria-pressed="true"] { background: var(--brand-ink); color: var(--brand); }
+  header > .action, .hactions > .action { border-color: var(--brand-line); }
+  header > .action:hover:not(:disabled), .hactions > .action:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); }
+  header button:focus-visible { outline-color: var(--accent); }
+  .about { display: none; }
   .spacer { flex: 1; }
   .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
   button {
@@ -119,8 +139,11 @@
   #hidePanel { min-height: 30px; padding: 2px 10px; font-size: 13px; }
   /* ---------- phones: compact header with a ⋯ menu; the steps panel is a bottom sheet you can hide ---------- */
   @media (max-width: 640px) {
-    header h1 { display: none; }
-    header { padding-inline: 10px; flex-wrap: nowrap; }
+    header { padding-inline: 10px; flex-wrap: nowrap; gap: 8px; }
+    .brand { gap: 8px; margin-right: 0; }
+    .mark { width: 30px; height: 30px; }
+    h1 { font-size: 20px; letter-spacing: 0.03em; }
+    .by { display: none; }
     #tabGeo { font-size: 0; }
     #tabGeo::after { content: 'Georef'; font-size: 14px; }
     #more { display: inline-block; }
@@ -131,6 +154,11 @@
     }
     .hactions.open { display: flex; }
     .hactions button { text-align: left; min-height: 44px; }
+    .hactions > button { color: var(--ink); }
+    .hactions > .action { border-color: var(--line); }
+    .hactions > .action:hover:not(:disabled) { background: var(--line); }
+    .about { display: block; padding: 8px 10px 4px; border-top: 1px solid var(--line); margin-top: 2px; font-size: 12px; color: var(--muted); }
+    .about b { color: var(--ink); font-weight: 600; }
     .panel { top: auto; bottom: 8px; left: 8px; width: auto; right: 8px; max-height: 44%; }
     .sheet { top: 8px; left: 8px; right: 8px; width: auto; }
     .reopen { top: 8px; left: 8px; }
@@ -140,7 +168,19 @@
 </style>
 
 <header>
-  <h1>Site Sketch</h1>
+  <div class="brand">
+    <svg class="mark" viewBox="0 0 64 64" aria-hidden="true">
+      <defs><clipPath id="markClip"><rect width="64" height="64" rx="12"/></clipPath></defs>
+      <g clip-path="url(#markClip)">
+      <rect width="64" height="64" fill="#13314f"/>
+      <path d="M8 0V64M16 0V64M24 0V64M32 0V64M40 0V64M48 0V64M56 0V64M0 8H64M0 16H64M0 24H64M0 32H64M0 40H64M0 48H64M0 56H64" stroke="#24486b" stroke-width="1"/>
+      <path d="M12.8 12.8H41.6V33.6H51.2V51.2H12.8Z" fill="none" stroke="#f4f7f6" stroke-width="3.6" stroke-linejoin="miter"/>
+      <circle cx="41.6" cy="33.6" r="5.2" fill="none" stroke="#f26a21" stroke-width="2.6"/>
+      <path d="M41.6 24.4V42.8M32.4 33.6H50.8" stroke="#f26a21" stroke-width="1.8"/>
+      </g>
+    </svg>
+    <div class="wm"><h1>Site Sketch</h1><span class="by">by Wiebe&#8217;s Spatial Solutions</span></div>
+  </div>
   <div class="seg" role="tablist" aria-label="View">
     <button id="tabDraw" role="tab" aria-pressed="true">Draw</button>
     <button id="tabGeo" role="tab" aria-pressed="false">Georeference</button>
@@ -152,6 +192,7 @@
     <button class="action" id="gridRef" title="Line the drawing grid up with a survey line">Grid line</button>
     <button class="action" id="openSurvey">Survey…</button>
     <button class="action" id="openExport">Export…</button>
+    <div class="about"><b>Site Sketch</b><br>by Wiebe&#8217;s Spatial Solutions</div>
   </div>
 </header>
 
@@ -820,7 +861,7 @@
   // ---------- the embedded sketch (shared/CONTRACT.md) ----------
   const frame = $('sketchFrame');
   // published: sketch/index.html next to this page; opened from the project folder: ../sketch/index.html
-  frame.src = /\/georef\/(index\.html)?$/.test(location.pathname) ? '../sketch/index.html' : 'sketch/index.html';
+  frame.src = /\/georef\/(index\.html)?$/.test(location.pathname) ? '../sketch/index.html#embedded' : 'sketch/index.html#embedded';
   const toSketch = msg => frame.contentWindow && frame.contentWindow.postMessage({ protocol: 'emlid-sketch', version: 1, ...msg }, '*');
   window.addEventListener('message', e => {
     if (e.source !== frame.contentWindow) return;

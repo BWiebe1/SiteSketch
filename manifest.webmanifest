@@ -1,13 +1,13 @@
 {
-  "name": "Site Sketch",
+  "name": "Site Sketch by Wiebe's Spatial Solutions",
   "short_name": "Site Sketch",
   "description": "Sketch a site layout with pen or finger, tie it to an Emlid Flow survey, and export it for stake-out.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#eef2f1",
-  "theme_color": "#1d4f7a",
+  "background_color": "#13314f",
+  "theme_color": "#13314f",
   "icons": [
     {
       "src": "icons/icon-192.png",
