@@ -15,7 +15,7 @@
   body > header { padding-top: calc(8px + env(safe-area-inset-top, 0px)); }
 </style>
 <title>Site Sketch</title>
-<meta name="app-version" content="1.10.1">
+<meta name="app-version" content="1.11.0">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;500;600&display=swap">
 <style>
@@ -242,21 +242,6 @@
         <p id="s0text">Tap a survey line to turn the grid to it.</p>
         <div class="row">
           <button class="action" id="gridPickBtn">Set from a survey line</button>
-        </div>
-      </div>
-      <div class="step" id="step1">
-        <h2><span class="num">1</span> Align</h2>
-        <p id="s1text">Tap an edge of your drawing, then the surveyed line it runs along.</p>
-        <div class="row">
-          <button class="action" id="flip">Flip 180°</button>
-          <button class="action" id="redo1">Redo step</button>
-        </div>
-      </div>
-      <div class="step" id="step2">
-        <h2><span class="num">2</span> Position</h2>
-        <p id="s2text">Tap a corner of your drawing, then the surveyed point it sits on.</p>
-        <div class="row">
-          <button class="action" id="redo2">Redo step</button>
         </div>
       </div>
       <div class="step" id="turnStep">
@@ -615,6 +600,8 @@
     finishImport(feats, header, cs, files.length === 1 ? files[0].name : `${files.length} files`, skipped);
   }
   function finishImport(feats, header, cs, label, skipped) {
+    const hasLines = feats.some(f => f.kind === 'line' && f.pts.length > 1);
+    if (!hasLines) return toast('This survey has no lines. Site Sketch needs linework to set the grid: survey at least one line in Emlid Flow (points with a line code), then export again.');
     pushUndo();
     const newSite = label !== G.file;
     G.survey = feats; G.header = header; G.cs = cs || G.cs || ''; G.file = label; G.outName = '';
@@ -1076,72 +1063,10 @@
       setGridFromLine(f.pts[h.i], f.pts[(h.i + 1) % f.pts.length]);
       return;
     }
-    if (!G.drawing || !G.drawing.shapes || !G.drawing.shapes.length) return toast('Draw something in the Draw tab first');
-    if (!G.survey.length) return toast('Load a survey first');
-    const local = drawLines(), world = drawWorld(), pk = G.pk;
-    if (G.step === 1) {
-      if (!pk.dEdge) {
-        const h = nearestSeg(world, s, 26);
-        if (!h) return toast('Tap an edge of your drawing (blue)');
-        const l = local[h.li]; pk.dEdge = { a: l.pts[h.i], b: l.pts[(h.i + 1) % l.pts.length] };
-      } else {
-        const sl = G.survey.filter(f => f.kind === 'line');
-        const h = nearestSeg(sl, s, 26);
-        if (!h) return toast('Tap a surveyed line (grey)');
-        const f = sl[h.li], a = f.pts[h.i], b = f.pts[(h.i + 1) % f.pts.length];
-        pk.sEdge = { a, b };
-        applyAlign();
-      }
-    } else if (G.step === 2) {
-      if (!pk.dPt) {
-        const all = local.flatMap(l => l.pts), i = nearestPt(all.map(fwd), s, 30);
-        if (i === null) return toast('Tap a corner of your drawing');
-        pk.dPt = all[i];
-      } else {
-        const sp = surveyPts(), i = nearestPt(sp, s, 30);
-        if (i === null) return toast('Tap a surveyed point');
-        pk.sPt = sp[i];
-        applyMove();
-      }
-    }
-    refresh();
+    // Align and Position were removed: the drawing is placed by sketching on the survey, after the grid is set
+    if (!G.refLine && hasSurveyLines()) toast('Tap Set from a survey line first');
+    return;
   }
-  // Step 1: turn the drawing so the picked edge runs along the survey line, then slide it onto that line.
-  function applyAlign() {
-    pushUndo();
-    const pk = G.pk, wa = fwd(pk.dEdge.a), wb = fwd(pk.dEdge.b);
-    let d = wrapPi(Math.atan2(pk.sEdge.b.n - pk.sEdge.a.n, pk.sEdge.b.e - pk.sEdge.a.e) - Math.atan2(wb.n - wa.n, wb.e - wa.e));
-    if (d > Math.PI / 2) d -= Math.PI; else if (d < -Math.PI / 2) d += Math.PI;   // the smallest turn that makes them parallel
-    if (G.flip) d += Math.PI;
-    const mid = { e: (wa.e + wb.e) / 2, n: (wa.n + wb.n) / 2 };
-    rotateT(d, mid);
-    const m2 = { e: (fwd(pk.dEdge.a).e + fwd(pk.dEdge.b).e) / 2, n: (fwd(pk.dEdge.a).n + fwd(pk.dEdge.b).n) / 2 };
-    const sa = pk.sEdge.a, sb = pk.sEdge.b, u = { e: sb.e - sa.e, n: sb.n - sa.n }, L2 = u.e * u.e + u.n * u.n || 1;
-    const t = ((m2.e - sa.e) * u.e + (m2.n - sa.n) * u.n) / L2, foot = { e: sa.e + u.e * t, n: sa.n + u.n * t };
-    moveT(foot.e - m2.e, foot.n - m2.n);
-    G.step = 2; G.pk = { aligned: { ...pk } };
-    save();
-    toast('Aligned. Now tap a corner of your drawing, then the survey point it sits on.');
-  }
-  // Step 2: slide the drawing so the picked corner sits on the picked survey point.
-  function applyMove() {
-    pushUndo();
-    const w = fwd(G.pk.dPt);
-    moveT(G.pk.sPt.e - w.e, G.pk.sPt.n - w.n);
-    G.step = 3; G.pk = { ...G.pk };
-    save();
-    toast('Positioned. Check it, then tap Done.');
-  }
-  $('flip').addEventListener('click', () => {
-    if (G.step < 2) return toast('Align first, then flip if the drawing faces the wrong way');
-    pushUndo();
-    // turn 180° about the aligned edge's middle: stays on the line, faces the other way
-    const src = G.pk.aligned;
-    if (!src) return;
-    const wa = fwd(src.dEdge.a), wb = fwd(src.dEdge.b);
-    rotateT(Math.PI, { e: (wa.e + wb.e) / 2, n: (wa.n + wb.n) / 2 });
-    G.flip = !G.flip; save(); refresh();
-  });
   // quarter turns keep whatever is already fixed: the positioned corner, or the aligned edge's middle
   function turnPivot() {
     if (G.step > 2 && G.pk.sPt) return { p: G.pk.sPt, why: 'the corner you positioned' };
@@ -1167,8 +1092,6 @@
   }
   $('hidePanel').addEventListener('click', () => setPanel(false));
   $('reopen').addEventListener('click', () => setPanel(true));
-  $('redo1').addEventListener('click', () => { G.step = 1; G.pk = {}; G.geo = false; refresh(); });
-  $('redo2').addEventListener('click', () => { if (G.step < 2) return; G.step = 2; G.pk = { aligned: G.pk.aligned }; G.geo = false; refresh(); });
   $('done').addEventListener('click', () => {
     if (!G.survey.length || !G.drawing) return toast('Load a survey and draw something first');
     pushUndo(); G.geo = true; G.step = 3; save();
@@ -1177,7 +1100,7 @@
     toast('Georeferenced. Export when you are ready.');
   });
   $('replace').addEventListener('click', () => {
-    pushUndo(); G.geo = false; G.step = 1; G.pk = {}; G.flip = false; G.T = { a: 0, e: 0, n: 0 };
+    pushUndo(); G.geo = false; G.step = 1; G.pk = {}; G.flip = false; G.T = { a: 0, e: 0, n: 0 }; G.refLine = null;
     placeDrawing(); fitView(); save(); refresh();
   });
 
@@ -1218,12 +1141,6 @@
   cv.addEventListener('wheel', e => { e.preventDefault(); zoomAt(local(e), Math.exp(-e.deltaY * 0.0015)); }, { passive: false });
 
   // ---------- panels ----------
-  function stepText() {
-    const pk = G.pk;
-    const t1 = G.step > 1 ? `Aligned${G.flip ? ' (flipped)' : ''}.` : pk.dEdge ? 'Now tap the surveyed line that edge runs along.' : 'Tap an edge of your drawing, then the surveyed line it runs along.';
-    const t2 = G.step > 2 ? 'Positioned.' : G.step < 2 ? 'After aligning: tap a corner of your drawing, then the surveyed point it sits on.' : pk.dPt ? 'Now tap the surveyed point that corner sits on.' : 'Tap a corner of your drawing, then the surveyed point it sits on.';
-    return [t1, t2];
-  }
   // Once georeferenced, the sketch shows the survey faintly underneath the drawing (shared/CONTRACT.md "background").
   let lastBg = null;
   function sendBackground() {
@@ -1244,17 +1161,12 @@
   function refresh() {
     sendBackground();
     if (!G.geo && $('panel').hidden) setPanel(true);   // not georeferenced any more: show the steps again
-    const [t1, t2] = stepText();
-    $('s1text').textContent = t1; $('s2text').textContent = t2;
     const gdeg = (G.T.a * 180 / Math.PI).toFixed(2);
     $('s0text').textContent = G.gridPick ? 'Tap a survey line. The grid turns the least amount to line up with it, never more than 45°.'
       : G.refLine ? `Grid lined up with a survey line (turned ${gdeg}°).` : 'Tap the button, then a survey line, to turn the grid to it.';
     $('gridPickBtn').textContent = G.gridPick ? 'Cancel' : G.refLine ? 'Pick another line' : 'Set from a survey line';
     $('gridPickBtn').disabled = !hasSurveyLines();
     $('step0').className = 'step' + (G.gridPick ? ' current' : G.refLine ? ' done' : '');
-    $('step1').className = 'step' + (G.step === 1 ? ' current' : ' done');
-    $('step2').className = 'step' + (G.step === 2 ? ' current' : G.step > 2 ? ' done' : '');
-    $('flip').disabled = G.step < 2;
     const pv = turnPivot();
     $('turnText').textContent = pv ? `Turns a quarter turn about ${pv.why}.` : 'Turns the drawing a quarter turn.';
     $('geoBadge').hidden = !G.geo;
