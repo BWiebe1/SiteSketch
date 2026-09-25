@@ -229,7 +229,8 @@
       <span class="label">Format</span>
       <div class="seg" id="fmt">
         <button type="button" data-v="csv" aria-pressed="true">CSV points</button>
-        <button type="button" data-v="dxf" aria-pressed="false">DXF lines</button>
+        <button type="button" data-v="shp" aria-pressed="false">Shapefile</button>
+        <button type="button" data-v="dxf" aria-pressed="false">DXF (Flow 360)</button>
       </div>
     </div>
     <div class="field">
@@ -706,7 +707,7 @@
   function zipStore(files) {
     const enc = new TextEncoder(), chunks = [], central = []; let off = 0;
     for (const f of files) {
-      const name = enc.encode(f.name), data = enc.encode(f.text), crc = crc32(data);
+      const name = enc.encode(f.name), data = f.data || enc.encode(f.text), crc = crc32(data);
       const lh = new DataView(new ArrayBuffer(30));
       lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(12, 33, true);
       lh.setUint32(14, crc, true); lh.setUint32(18, data.length, true); lh.setUint32(22, data.length, true); lh.setUint16(26, name.length, true);
@@ -721,12 +722,72 @@
     end.setUint32(12, cdSize, true); end.setUint32(16, off, true);
     return new Blob([...chunks, ...central, end.buffer], { type: 'application/zip' });
   }
+  // Shapefile ZIP for the Emlid Flow phone app (it can't import DXF): one set of SHP/SHX/DBF per geometry type,
+  // no subfolder, a "name" attribute. Coordinates are grid values, so the Emlid project's CS must match.
+  function shpSet(type, feats) {
+    const recs = feats.map(f => {
+      const pts = type === 1 ? f.pts.slice(0, 1) : f.closed ? [...f.pts, f.pts[0]] : f.pts;
+      const len = type === 1 ? 20 : 48 + 16 * pts.length, dv = new DataView(new ArrayBuffer(len));
+      dv.setInt32(0, type, true);
+      if (type === 1) { dv.setFloat64(4, pts[0].e, true); dv.setFloat64(12, pts[0].n, true); }
+      else {
+        const es = pts.map(p => p.e), ns = pts.map(p => p.n);
+        [Math.min(...es), Math.min(...ns), Math.max(...es), Math.max(...ns)].forEach((v, i) => dv.setFloat64(4 + 8 * i, v, true));
+        dv.setInt32(36, 1, true); dv.setInt32(40, pts.length, true); dv.setInt32(44, 0, true);
+        pts.forEach((p, i) => { dv.setFloat64(48 + 16 * i, p.e, true); dv.setFloat64(56 + 16 * i, p.n, true); });
+      }
+      return { dv, pts };
+    });
+    const all = recs.flatMap(r => r.pts), header = words => {
+      const h = new DataView(new ArrayBuffer(100));
+      h.setInt32(0, 9994); h.setInt32(24, words); h.setInt32(28, 1000, true); h.setInt32(32, type, true);
+      [Math.min(...all.map(p => p.e)), Math.min(...all.map(p => p.n)), Math.max(...all.map(p => p.e)), Math.max(...all.map(p => p.n))]
+        .forEach((v, i) => h.setFloat64(36 + 8 * i, v, true));
+      return new Uint8Array(h.buffer);
+    };
+    const shpLen = 100 + recs.reduce((a, r) => a + 8 + r.dv.byteLength, 0);
+    const shp = new Uint8Array(shpLen), shx = new Uint8Array(100 + 8 * recs.length);
+    shp.set(header(shpLen / 2)); shx.set(header(shx.length / 2));
+    let off = 100;
+    recs.forEach((r, i) => {
+      const rh = new DataView(shp.buffer, off, 8), ix = new DataView(shx.buffer, 100 + 8 * i, 8);
+      rh.setInt32(0, i + 1); rh.setInt32(4, r.dv.byteLength / 2);
+      ix.setInt32(0, off / 2); ix.setInt32(4, r.dv.byteLength / 2);
+      shp.set(new Uint8Array(r.dv.buffer), off + 8); off += 8 + r.dv.byteLength;
+    });
+    // DBF: name and code, UTF-8 (declared in the .cpg)
+    const enc = new TextEncoder(), fields = [['name', 50], ['code', 30]], recLen = 1 + fields.reduce((a, f) => a + f[1], 0);
+    const hLen = 32 + 32 * fields.length + 1, dbf = new Uint8Array(hLen + recLen * feats.length + 1).fill(0x20, hLen);
+    const dh = new DataView(dbf.buffer), now = new Date();
+    dbf.fill(0, 0, hLen);
+    dbf[0] = 3; dbf[1] = now.getFullYear() - 1900; dbf[2] = now.getMonth() + 1; dbf[3] = now.getDate();
+    dh.setUint32(4, feats.length, true); dh.setUint16(8, hLen, true); dh.setUint16(10, recLen, true);
+    fields.forEach(([nm, w], i) => { dbf.set(enc.encode(nm), 32 + 32 * i); dbf[32 + 32 * i + 11] = 67; dbf[32 + 32 * i + 16] = w; });
+    dbf[hLen - 1] = 0x0D;
+    const fit = (s, w) => { let b = enc.encode(s || ''); while (b.length > w) { s = s.slice(0, -1); b = enc.encode(s); } return b; };
+    feats.forEach((f, i) => {
+      let o = hLen + recLen * i + 1;
+      [f.kind === 'point' ? f.name : f.code, f.code].forEach((v, k) => { dbf.set(fit(v, fields[k][1]), o); o += fields[k][1]; });
+    });
+    dbf[dbf.length - 1] = 0x1A;
+    return { shp, shx, dbf };
+  }
+  function buildSHP() {
+    const fs = exportFeats(), base = baseName().replace(/[^\w.-]+/g, '_'), files = [];
+    for (const [type, suffix, pick] of [[1, 'points', f => f.kind === 'point'], [3, 'lines', f => f.kind === 'line' && f.pts.length > 1]]) {
+      const feats = fs.filter(pick);
+      if (!feats.length) continue;
+      const s = shpSet(type, feats), n = `${base}_${suffix}`;
+      files.push({ name: `${n}.shp`, data: s.shp }, { name: `${n}.shx`, data: s.shx }, { name: `${n}.dbf`, data: s.dbf }, { name: `${n}.cpg`, text: 'UTF-8' });
+    }
+    return zipStore(files);
+  }
   // In Claude, saving goes through the viewer's save prompt; opened as a plain file, a normal download.
   const dlCap = window.claude && window.claude.use ? window.claude.use('downloads').catch(() => null) : Promise.resolve(null);
   async function deliver(name, text) {
     // installed app (not inside Claude): hand the file to the phone's share sheet — Emlid Flow, Files, AirDrop, Mail
     if (!window.claude && navigator.canShare) {
-      const types = /\.csv$/i.test(name) ? ['text/csv', 'text/plain'] : ['application/dxf', 'text/plain'];
+      const types = /\.csv$/i.test(name) ? ['text/csv', 'text/plain'] : /\.zip$/i.test(name) ? ['application/zip'] : ['application/dxf', 'text/plain'];
       for (const type of types) {
         const file = new File([text], name, { type });
         if (!navigator.canShare({ files: [file] })) continue;
@@ -750,7 +811,7 @@
       return;
     }
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' })); a.download = name;
+    a.href = URL.createObjectURL(text instanceof Blob ? text : new Blob([text], { type: 'text/plain' })); a.download = name;
     document.body.appendChild(a); a.click();
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
     toast(`Saved ${name}`);
@@ -1154,8 +1215,14 @@
       : !G.survey.length ? 'No survey loaded: coordinates will be in local drawing units.'
       : !G.geo ? 'Not georeferenced yet: the drawing will be exported where it currently sits on the survey.'
       : `${n} line${n === 1 ? '' : 's'} in grid coordinates${geoOf({ e: G.T.e, n: G.T.n }, G.cs) ? ', with latitude and longitude' : ''}.`;
+    $('exportNote').textContent += ' ' + FMT_NOTE[G.fmt];
     $('outName').placeholder = defaultBase();
   }
+  const FMT_NOTE = {
+    csv: 'CSV: points only; import in the Emlid Flow app.',
+    shp: 'Shapefile ZIP: lines and points; import in the Emlid Flow app (lines need the Survey plan).',
+    dxf: 'DXF: import in Emlid Flow 360 on the web as a CAD drawing (subscription); the phone app cannot open DXF.',
+  };
   $('openExport').addEventListener('click', () => {
     const open = $('exportSheet').hidden; closeSheets();
     $('csName').value = G.cs; $('outName').value = G.outName;
@@ -1167,7 +1234,9 @@
     e.preventDefault();
     if (!drawLines().length) return toast('There is nothing drawn to export');
     G.cs = $('csName').value.trim(); G.outName = $('outName').value; save();
-    if (G.fmt === 'dxf') deliver(baseName() + '.dxf', buildDXF()); else deliver(baseName() + '.csv', buildCSV());
+    if (G.fmt === 'dxf') deliver(baseName() + '.dxf', buildDXF());
+    else if (G.fmt === 'shp') deliver(baseName() + '-shp.zip', buildSHP());
+    else deliver(baseName() + '.csv', buildCSV());
     closeSheets();
   });
   document.addEventListener('keydown', e => {
