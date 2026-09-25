@@ -188,7 +188,7 @@
   <div class="spacer"></div>
   <button class="action" id="more" aria-expanded="false" aria-controls="hactions" aria-label="More">⋯</button>
   <div class="hactions" id="hactions">
-    <button class="action" id="undo" title="Undo the last georeference change">Undo</button>
+    <button class="action" id="undo" title="Undo the last georeference change" hidden>Undo</button>
     <button class="action" id="gridRef" title="Line the drawing grid up with a survey line">Grid line</button>
     <button class="action" id="openSurvey">Survey…</button>
     <button class="action" id="openExport">Export…</button>
@@ -885,6 +885,7 @@
     $('tabDraw').setAttribute('aria-pressed', String(!geo));
     $('tabGeo').setAttribute('aria-pressed', String(geo));
     drawView.hidden = geo; geoView.hidden = !geo;
+    $('undo').hidden = !geo;   // georeference undo belongs to the Georeference tab; the sketch has its own
     closeSheets();
     if (geo) { resize(); if (!G.view) fitView(); refresh(); }
   }
