@@ -212,9 +212,14 @@
       padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
       flex-wrap: nowrap; justify-content: flex-start; gap: 6px; overflow-x: auto; -webkit-overflow-scrolling: touch;
     }
-    .viewctl .seg, .viewctl .action { flex: none; }
+    /* every tool fits in one row: the buttons share the width equally */
+    .viewctl { gap: 2px; padding: 4px 4px calc(4px + env(safe-area-inset-bottom, 0px)); overflow-x: visible; }
+    .viewctl .seg { display: contents; }
     .viewctl .seg:has(#zIn) { display: none; }   /* pinch to zoom instead */
-    .viewctl button { min-width: 46px; min-height: 44px; padding: 6px 10px; }
+    .viewctl button { flex: 1 1 0; min-width: 0; min-height: 46px; padding: 6px 2px; border-radius: 8px; border: 0; }
+    .viewctl .seg button + button { border-left: 0; }
+    .viewctl .action { border: 0; }
+    .layico { gap: 1px; font-size: 11px; }
     main { margin-bottom: calc(58px + env(safe-area-inset-bottom, 0px)); }
     /* the info box becomes a small line at the top */
     .readout { top: 8px; bottom: auto; left: 8px; max-width: calc(100% - 16px); font-size: 11px; padding: 4px 8px; line-height: 1.4; }
