@@ -1,4 +1,4 @@
-const CACHE = 'site-sketch-1.6.0-20260925-173338';
+const CACHE = 'site-sketch-1.7.0-20260925-174316';
 const FILES = ['./', 'index.html', 'sketch/index.html', 'agwest-russel.csv', 'manifest.webmanifest',
   'icons/apple-touch-icon.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png'];
 // fetch every file past the browser's own cache (GitHub Pages lets it keep pages for 10 minutes)

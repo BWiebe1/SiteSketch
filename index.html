@@ -15,7 +15,7 @@
   body > header { padding-top: calc(8px + env(safe-area-inset-top, 0px)); }
 </style>
 <title>Site Sketch</title>
-<meta name="app-version" content="1.6.0">
+<meta name="app-version" content="1.7.0">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;500;600&display=swap">
 <style>
@@ -681,7 +681,12 @@
   // ---------- export ----------
   function exportFeats() {
     let k = 0;
+    let np = 0;
     const drawn = drawLines().map(l => {
+      if (l.pts.length === 1) {   // a point drawn with the sketch's Point tool: a stake-out point
+        np++;
+        return { kind: 'point', src: 'new', layer: l.layer, code: 'LO_PT', name: `PT_${np}`, pts: [{ ...fwd(l.pts[0]), z: 0 }] };
+      }
       k++;
       const code = `LO_${k}`;
       return { kind: 'line', src: 'new', layer: l.layer, code, name: code, closed: l.closed, pts: l.pts.map((p, i) => ({ ...fwd(p), z: 0, name: `${code}-${i + 1}` })) };
