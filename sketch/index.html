@@ -1130,6 +1130,7 @@
     drawLive();
     drawToolPreview();
     drawFilletPreview();
+    drawSlidePreview();
     if (mode === 'move' && snapHit) snapMarker(toScreen(snapHit));
     if (mode === 'vdrag' && snapHit) snapCircle(toScreen(snapHit));
     if (vertSel) {   // the selected corner
@@ -2410,6 +2411,48 @@
     };
   }
 
+  // ---------- sliding a line or an edge sideways ----------
+  // A selected single line, or the picked edge of a selected shape, can be dragged across itself only: it keeps its
+  // direction and length along the line. A shape's neighbouring edges keep their angles and stretch to meet it.
+  let eslide = null, slideHinted = false;
+  function slideTarget(sp) {
+    const sh = selected; if (!sh || !sh.result || circleOf(sh)) return null;
+    let ri = 0, ei = 0;
+    if (segSel && segSel.sid === sh.id) { ri = segSel.ri; ei = segSel.ei; }
+    else if (!sh.result.closed && sh.result.verts.length === 2 && !(sh.result.holes && sh.result.holes.length)) { ri = 0; ei = 0; }
+    else return null;
+    const ring = [sh.result.verts, ...(sh.result.holes || [])][ri]; if (!ring) return null;
+    const a = ring[ei], b = ring[(ei + 1) % ring.length];
+    if (!a || !b || segDist(toWorld(sp), a, b) * view.s > 26) return null;
+    const u = norm(sub(b, a));
+    return { ri, ei, n: { x: -u.y, y: u.x }, closed: sh.result.closed, base: ring };
+  }
+  function slidRing(f) {
+    const base = f.base, m = base.length, i0 = f.ei, i1 = (f.ei + 1) % m, off = mul(f.n, f.d);
+    const A = add(base[i0], off), B = add(base[i1], off), L = { c: A, u: norm(sub(B, A)) };
+    const meet = (i, j, moved) => {   // i: the moving corner, j: its neighbour along the adjacent edge
+      if (j == null) return moved;
+      const X = intersect(L, { c: base[j], u: norm(sub(base[i], base[j])) });
+      return X && dist(X, moved) < 50 * Math.abs(f.d) + 1e-9 ? X : moved;
+    };
+    const prev = f.closed || i0 > 0 ? mod(i0 - 1, m) : null, next = f.closed || i1 < m - 1 ? (i1 + 1) % m : null;
+    const out = base.map(q => ({ ...q }));
+    const P = meet(i0, prev === i1 ? null : prev, A), Q = meet(i1, next === i0 ? null : next, B);
+    out[i0] = { ...base[i0], x: P.x, y: P.y }; out[i1] = { ...base[i1], x: Q.x, y: Q.y };
+    return out;
+  }
+  function commitSlide(f) {
+    if (!f.d) return;
+    const ring = JSON.parse(JSON.stringify(slidRing(f)));
+    editSelected(sh => { if (f.ri === 0) sh.result.verts = ring; else sh.result.holes[f.ri - 1] = ring; sh.fixed = true; });
+    toast('Moved ' + fmtLen(Math.abs(f.d)));
+  }
+  function drawSlidePreview() {
+    const f = eslide; if (!f || mode !== 'edgeslide' || !f.moved) return;
+    drawResult({ verts: slidRing(f).map(toScreen), closed: f.closed }, true);
+    if (f.cur) label((f.d < 0 ? '−' : '') + fmtLen(Math.abs(f.d)), f.cur.x, f.cur.y - 36, colors.vertex);
+  }
+
   // ---------- Round corner (fillet) ----------
   // A rounded corner is a run of points on the arc (5 degrees apart), each tagged { arc: { id, r } }, so it stays an
   // ordinary polyline for trimming, snapping and the exports; the tags let it be drawn with one R label, re-sized, and
@@ -2945,6 +2988,7 @@
         if (mode === 'draw') { live = null; liveRes = null; drawId = null; }
         if (mode === 'shapetool') { tdrag = null; drawId = null; }   // a second finger: pinch instead
         if (mode === 'filletdrag') { fdrag = null; drawId = null; }
+        if (mode === 'edgeslide') { eslide = null; drawId = null; }
         startPinch(); requestDraw(); return;
       }
       if (mode) return;
@@ -2983,6 +3027,16 @@
       mode = 'filletdrag'; drawId = e.pointerId; drawType = e.pointerType;
       fdrag = { s0: sp, moved: false };
       return;
+    }
+    if (!opts.draw && !editTool() && selected && !pick && !divState && !refPick && !cornerEdit) {
+      const t = slideTarget(sp);
+      if (t) {
+        // the selected line (or picked edge) slides sideways only, keeping its direction
+        e.preventDefault(); clearTimeout(holdTimer); holdTimer = null;
+        mode = 'edgeslide'; drawId = e.pointerId; drawType = e.pointerType;
+        eslide = { ...t, s0: sp, w0: toWorld(sp), d: 0, moved: false };
+        return;
+      }
     }
     if (shapeTool() && !pick && !divState && !refPick && !(cornerEdit && cornerEdit.closed)) {
       e.preventDefault();
@@ -3093,6 +3147,15 @@
         if (Math.abs(aligned - raw) < 4) { pick.angle = +aligned.toFixed(6); pick.onGrid = true; }
       }
       requestDraw();
+    } else if (mode === 'edgeslide' && e.pointerId === drawId && eslide) {
+      const sp = localPoint(e);
+      if (dist(sp, eslide.s0) > 6) eslide.moved = true;
+      if (eslide.moved) {
+        const d = dot(sub(toWorld(sp), eslide.w0), eslide.n);
+        eslide.d = toWorldLen(Math.round(toUnitsNum(Math.abs(d)) * 10) / 10) * Math.sign(d);   // 0.1 unit steps
+        eslide.cur = sp;
+        requestDraw();
+      }
     } else if (mode === 'filletdrag' && e.pointerId === drawId) {
       const sp = localPoint(e);
       if (fdrag && dist(sp, fdrag.s0) > 6) fdrag.moved = true;
@@ -3131,6 +3194,12 @@
       return;
     }
     if (mode === 'move' && e.pointerId === drawId) { mode = null; drawId = null; snapHit = null; setCursor(); updateReadout(); requestDraw(); return; }
+    if (mode === 'edgeslide' && e.pointerId === drawId) {
+      mode = null; drawId = null;
+      const f = eslide; eslide = null;
+      if (!cancelled && f) { if (f.moved) commitSlide(f); else finishStroke([f.s0]); }   // a tap still selects as usual
+      requestDraw(); return;
+    }
     if (mode === 'filletdrag' && e.pointerId === drawId) {
       mode = null; drawId = null;
       const f = fdrag; fdrag = null;
@@ -3188,7 +3257,10 @@
       if (vh) { vertSel = vh; selected = shapes.find(x => x.id === vh.sid) || null; segSel = null; updateReadout(); requestDraw(); return; }
       vertSel = null;
       const tapped = shapeAt(toWorld(t), px);
-      if (tapped && tapped === selected) segSel = segAt(t, tapped, 26);   // tap the selected shape again: pick a segment
+      if (tapped && tapped === selected) {   // tap the selected shape again: pick a segment
+        segSel = segAt(t, tapped, 26);
+        if (segSel && !slideHinted) { slideHinted = true; toast('Drag the highlighted edge to slide it sideways'); }
+      }
       else { selected = tapped; segSel = null; }
       updateReadout(); requestDraw(); return;
     }
