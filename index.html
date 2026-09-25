@@ -1,5 +1,5 @@
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -15,7 +15,7 @@
   body > header { padding-top: calc(8px + env(safe-area-inset-top, 0px)); }
 </style>
 <title>Site Sketch</title>
-<meta name="app-version" content="1.4.1">
+<meta name="app-version" content="1.5.0">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;500;600&display=swap">
 <style>
@@ -44,6 +44,8 @@
     --brand: #0e2236; --brand-ink: #e6eef0; --brand-muted: #8aa1b3; --brand-line: rgba(230, 238, 240, 0.22); --accent: #ff7a33;
   }
   html, body { height: 100%; overscroll-behavior: none; }
+  /* the page itself never zooms (the drawing has its own pinch zoom); panels still scroll */
+  html, body { touch-action: pan-x pan-y; }
   body {
     background: var(--paper); color: var(--ink); margin: 0;
     font-family: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
@@ -90,7 +92,8 @@
     font: inherit; font-size: 14px; color: var(--ink); background: var(--paper);
     border: 1px solid var(--line); border-radius: 6px; height: 34px; padding: 0 8px; min-width: 0;
   }
-  @media (pointer: coarse) { input[type="text"], select { font-size: 16px; } }
+  /* iPhones zoom the whole page into any text box under 16 px, and stay zoomed: every box is 16 px on touch screens */
+  @media (pointer: coarse) { input, select, textarea { font-size: 16px !important; } }
   main { position: relative; min-height: 0; }
   .view { position: absolute; inset: 0; }
   iframe { border: 0; width: 100%; height: 100%; display: block; }
@@ -1338,5 +1341,6 @@
     } catch (e) { /* reload anyway */ }
     location.replace(location.pathname + '?v=' + encodeURIComponent(online));
   });
+  document.addEventListener('gesturestart', e => e.preventDefault(), { passive: false });   // iPhone: no page zoom
 })();
 </script>

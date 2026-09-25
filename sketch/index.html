@@ -44,12 +44,15 @@
     --analysis: #e46fc4; --btn-on: #74b4e3; --btn-on-ink: #0d1416; --focus: #ff8c52; --danger: #ff7b6e; --dimln: #6fd1a4;
   }
   html, body { height: 100%; overscroll-behavior: none; }
+  /* the page itself never zooms (the drawing has its own pinch zoom); panels still scroll */
+  html, body { touch-action: pan-x pan-y; }
   /* iPhone/iPad: no text selection, magnifier or callout on press-and-hold, no double-tap zoom on controls */
   body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
   input, select { -webkit-user-select: text; user-select: text; }
   button, input, select, label { touch-action: manipulation; }
   /* iOS zooms the page into any text box whose text is under 16px, so touch screens get 16px */
-  @media (pointer: coarse) { input[type="number"], select { font-size: 16px; } }
+  /* iPhones zoom the whole page into any text box under 16 px, and stay zoomed: every box is 16 px on touch screens */
+  @media (pointer: coarse) { input, select, textarea { font-size: 16px !important; } }
   body {
     background: var(--paper); color: var(--ink); margin: 0;
     font-family: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
@@ -2459,16 +2462,83 @@
     if (r == null) r = Math.min(lastFillet || GRID, g.maxR * 0.5);
     filletState = { shape: sh, ri, closed, base, vi, g, id, r: Math.min(r, g.maxR) };
     selected = sh; segSel = null; vertSel = null;
-    const sc = toScreen(g.V);
+    openFilletBox();
+    return true;
+  }
+  function openFilletBox() {
+    const sc = toScreen(filletState.g.V);
     openEditor(sc.x, sc.y, [{ label: 'Radius', value: +toUnitsNum(filletState.r).toFixed(3) }], ([v]) => {
       if (!filletState) return;
       filletState.r = Math.min(toWorldLen(v), filletState.g.maxR);
-      if (toWorldLen(v) > filletState.g.maxR) toast('Radius cut to ' + fmtLen(filletState.g.maxR) + ': the edges are too short for more');
+      if (toWorldLen(v) > filletState.g.maxR) toast('Radius cut to ' + fmtLen(filletState.g.maxR) + ': the lines are too short for more');
       commitFillet();
     }, ([v]) => { if (filletState && v > 0) { filletState.r = Math.min(toWorldLen(v), filletState.g.maxR); requestDraw(); } });
     pop.querySelector('#editCancel').onclick = () => { filletState = null; closeEditor(); requestDraw(); };
     updateReadout(); requestDraw();
+  }
+
+  // Rounding where two separate lines cross or meet (CAD fillet): tap near the crossing on the side the curve goes.
+  // Each line keeps its part on that side, trimmed (or extended) to where the curve touches it, and the two lines and
+  // the curve become one line.
+  function crossingAt(sp) {
+    const tol = 30, lines = [];
+    for (const sh of workShapes()) {
+      if (!sh.result || sh.result.closed || circleOf(sh)) continue;
+      const v = sh.result.verts;
+      for (let i = 0; i + 1 < v.length; i++) if (!(v[i].arc && v[i + 1].arc && v[i].arc.id === v[i + 1].arc.id)) lines.push({ sh, i, a: v[i], b: v[i + 1] });
+    }
+    let best = null, bd = tol;
+    for (let m = 0; m < lines.length; m++) for (let n = m + 1; n < lines.length; n++) {
+      const A = lines[m], B = lines[n];
+      if (A.sh === B.sh) continue;
+      const X = intersect({ c: A.a, u: norm(sub(A.b, A.a)) }, { c: B.a, u: norm(sub(B.b, B.a)) });
+      if (!X) continue;
+      const d = dist(toScreen(X), sp);
+      if (d >= bd || segDist(X, A.a, A.b) * view.s > tol || segDist(X, B.a, B.b) * view.s > tol) continue;
+      bd = d; best = { A, B, X };
+    }
+    return best;
+  }
+  function startCrossFillet(c, sp) {
+    const { A, B, X } = c, w = toWorld(sp);
+    const uA = norm(sub(A.b, A.a)), uB = norm(sub(B.b, B.a));
+    const nA = { x: -uA.y, y: uA.x }, nB = { x: -uB.y, y: uB.x }, t = sub(w, X);
+    // each line keeps the part on the tapped side of the other line; a tap right on the crossing keeps the longer parts
+    const pick = (u, n, a, b) => {
+      const side = dot(t, n);
+      if (Math.abs(side) * view.s > 6) return mul(u, Math.sign(dot(u, n)) === Math.sign(side) ? 1 : -1);
+      return dot(sub(b, X), u) >= dot(sub(X, a), u) ? u : mul(u, -1);
+    };
+    const dA = pick(uA, nB, A.a, A.b), dB = pick(uB, nA, B.a, B.b);
+    const far = (L, d) => Math.max(dot(sub(L.a, X), d), dot(sub(L.b, X), d));   // how much line there is on the kept side
+    const th = Math.acos(Math.max(-1, Math.min(1, dot(dA, dB))));
+    if (th < Math.PI / 180 || th > Math.PI * 179 / 180) return false;
+    const tanHalf = Math.tan(th / 2), avail = Math.min(far(A, dA), far(B, dB));
+    if (!(avail > 0)) return false;
+    const g = { V: { x: X.x, y: X.y }, u1: dA, u2: dB, th, tanHalf, maxR: avail * 0.999 * tanHalf };
+    filletState = { cross: { A, B }, g, id: newArcId(), r: Math.min(lastFillet || GRID, g.maxR * 0.5) };
+    selected = null; group = []; segSel = null; vertSel = null;
+    openFilletBox();
     return true;
+  }
+  // one line's kept part, as a path that ends at T (the point where the curve starts)
+  function keptTo(L, d, T) {
+    const v = L.sh.result.verts;
+    if (dot(sub(v[L.i + 1], v[L.i]), d) > 0) return [...v.slice(L.i + 1)].reverse().concat([T]);   // keeps the end after the segment
+    return [...v.slice(0, L.i + 1), T];
+  }
+  function commitCrossFillet(f) {
+    const { A, B } = f.cross, pts = filletPoints(f.g, f.r, f.id);
+    const T1 = pts[0], T2 = pts[pts.length - 1];
+    const a = keptTo(A, f.g.u1, T1), b = keptTo(B, f.g.u2, T2).reverse();   // a ends at T1; b starts at T2
+    const verts = JSON.parse(JSON.stringify([...a.slice(0, -1), ...pts, ...b.slice(1)]));
+    pushHistory();
+    const joined = { raw: [], px: 1, fixed: true, layer: A.sh.layer, result: { verts, closed: false } };
+    shapes = shapes.filter(x => x !== A.sh && x !== B.sh).concat([joined]);
+    selected = joined; group = []; lasso = null;
+    lastFillet = f.r;
+    toast('Rounded and joined: R ' + fmtLen(f.r));
+    updateReadout(); requestDraw();
   }
   function filletTap(sp) {
     const w = toWorld(sp);
@@ -2493,7 +2563,11 @@
       }
     }
     if (filletState) { filletState = null; closeEditor(); }
-    if (!best || !startFillet(best.sh, best.ri, best.i)) { toast('Tap a corner of a shape to round it'); requestDraw(); }
+    if (best && startFillet(best.sh, best.ri, best.i)) return;
+    const c = crossingAt(sp);
+    if (c && startCrossFillet(c, sp)) return;
+    toast('Tap a corner, or near where two lines cross or meet, on the side the curve goes');
+    requestDraw();
   }
   function filletFromPointer(sp) {
     const f = filletState; if (!f) return;
@@ -2509,6 +2583,7 @@
     const f = filletState; if (!f) return;
     filletState = null; closeEditor();
     if (!(f.r > 0)) { requestDraw(); return; }
+    if (f.cross) { commitCrossFillet(f); return; }
     const pts = filletPoints(f.g, f.r, f.id);
     const ring = JSON.parse(JSON.stringify([...f.base.slice(0, f.vi), ...pts, ...f.base.slice(f.vi + 1)]));
     selected = f.shape;
@@ -3860,7 +3935,7 @@
     rect: 'Rectangle: drag from one corner to the opposite corner',
     circle: 'Circle: tap the centre to type a radius, or drag out from the centre',
     erase: 'Eraser: drag over shapes or dimensions to remove them',
-    fillet: 'Round: tap a corner, then drag to size the curve or type the radius',
+    fillet: 'Round: tap a corner, or where two lines cross on the side the curve goes; then drag or type the radius',
     selectLoop: 'Select: tap a shape, or draw a loop around several. Two fingers move the view.',
     trim: 'Trim: tap or drag across the part of a line to remove',
     extend: 'Extend: tap a line end, or drag from one line to another to make them meet',
@@ -4169,5 +4244,6 @@
   updateReadout(); draw();
   post({ type: 'ready' });
   if (document.fonts) document.fonts.ready.then(() => requestDraw());
+  document.addEventListener('gesturestart', e => e.preventDefault(), { passive: false });   // iPhone: no page zoom
 })();
 </script>
