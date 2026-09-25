@@ -182,6 +182,15 @@
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14); display: grid; gap: 8px;
   }
   .lp-head { display: grid; gap: 2px; }
+  /* the drawing tool switches itself off after a pause: a bar along the button's foot drains until then */
+  #tDraw, #tShapes, #tErase { position: relative; }
+  .idling::after {
+    content: ''; position: absolute; left: 6px; right: 6px; bottom: 3px; height: 3px; border-radius: 2px;
+    background: currentColor; opacity: 0.85; transform-origin: left center;
+    animation: idle-drain var(--idle, 8s) linear forwards;
+  }
+  @keyframes idle-drain { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+  @media (prefers-reduced-motion: reduce) { .idling::after { animation: none; } }
   .shapepop {
     position: absolute; top: 62px; right: 16px; z-index: 7; min-width: 190px;
     background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px;
@@ -313,6 +322,15 @@
   <div class="group">
     <span class="label">Snap</span>
     <div class="seg"><button id="tSnapPts" aria-pressed="true" title="Corners and line ends snap onto existing corners and line ends, when drawing and when moving">To points</button></div>
+  </div>
+  <div class="group" title="Draw, Line, Rectangle, Circle and Eraser switch themselves off when you stop using them, so a stray touch moves the view instead of drawing">
+    <span class="label">Draw turns off after</span>
+    <div class="seg" id="idleOff">
+      <button data-v="5" aria-pressed="false">5 s</button>
+      <button data-v="8" aria-pressed="true">8 s</button>
+      <button data-v="15" aria-pressed="false">15 s</button>
+      <button data-v="0" aria-pressed="false">Never</button>
+    </div>
   </div>
     <div class="group">
       <button class="action" id="merge" title="Combine closed shapes that overlap into one outline">Merge overlapping</button>
@@ -458,7 +476,7 @@
   const stage = document.getElementById('stage');
   const readout = document.getElementById('readout');
 
-  const opts = { step: 45, align: 'screen', tol: 5, sketch: true, dims: true, debug: false, penOnly: false, hand: false, trim: false, roundTo: 1, snapW: GRID, snapPoints: true, extend: false, offset: false, draw: false, dim: false, line: false, bg: true, alignTool: false, rect: false, circle: false, erase: false };
+  const opts = { step: 45, align: 'screen', tol: 5, sketch: true, dims: true, debug: false, penOnly: false, hand: false, trim: false, roundTo: 1, snapW: GRID, snapPoints: true, extend: false, offset: false, draw: false, dim: false, line: false, bg: true, alignTool: false, rect: false, circle: false, erase: false, idleOff: 8 };
   const editTool = () => opts.trim || opts.extend || opts.offset || opts.dim || opts.alignTool || opts.rect || opts.circle || opts.erase;   // these modes don't sketch freehand
   const shapeTool = () => opts.rect || opts.circle || opts.erase;   // Rectangle, Circle and Eraser: press, drag, release
   let annots = [];      // dimension lines: { a: anchor, b: anchor }, anchors point at an edge of a shape by id
@@ -2682,6 +2700,7 @@
   const setSettings = open => { settingsEl.classList.toggle('open', open); settingsBtn.setAttribute('aria-expanded', String(open)); };
   settingsBtn.addEventListener('click', () => setSettings(!settingsEl.classList.contains('open')));
   cv.addEventListener('pointerdown', e => {
+    stopIdle();
     if (!layerPanel.hidden) { layerPanel.hidden = true; layerBtn.setAttribute('aria-expanded', 'false'); }
     if (!shapePop.hidden) { shapePop.hidden = true; shapesBtn.setAttribute('aria-expanded', 'false'); }
     if (!pop.hidden && !(cornerEdit && cornerEdit.closed)) closeEditor();
@@ -2882,8 +2901,9 @@
     if (!cancelled && screenPts) finishStroke(screenPts);
     requestDraw();
   }
-  cv.addEventListener('pointerup', e => endPointer(e, false));
-  cv.addEventListener('pointercancel', e => endPointer(e, true));
+  const afterPointer = () => { if (!touches.size && mode === null) armIdle(); };
+  cv.addEventListener('pointerup', e => { endPointer(e, false); afterPointer(); });
+  cv.addEventListener('pointercancel', e => { endPointer(e, true); afterPointer(); });
 
   function finishStroke(screenPts) {
     let len = 0; for (let i = 1; i < screenPts.length; i++) len += dist(screenPts[i - 1], screenPts[i]);
@@ -3665,7 +3685,46 @@
     setMode(key, on);
     if (on) { selected = null; group = []; lasso = null; toast(modeHint[key]); }
     syncShapesBtn(); shapePop.hidden = true; shapesBtn.setAttribute('aria-expanded', 'false');
+    armIdle();
     setCursor(); updateReadout(); requestDraw();
+  });
+  // ---------- drawing tools switch off after a pause ----------
+  // Draw, Line, Rectangle, Circle and Eraser: a pause of opts.idleOff seconds with no stroke turns the tool off, so a
+  // stray touch later moves the view instead of drawing. Never while a number box is open or a Line is half drawn.
+  const IDLE_KEYS = ['draw', 'line', 'rect', 'circle', 'erase'];
+  let idleTimer = null, idleBtn = null;
+  try { const v = Number(localStorage.getItem('sketch.idleOff')); if ([0, 5, 8, 15].includes(v) && localStorage.getItem('sketch.idleOff') !== null) opts.idleOff = v; } catch (e) { /* storage blocked */ }
+  document.querySelectorAll('#idleOff button').forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.v) === opts.idleOff)));
+  const idleTool = () => IDLE_KEYS.find(k => opts[k]);
+  function stopIdle() {
+    clearTimeout(idleTimer); idleTimer = null;
+    if (idleBtn) { idleBtn.classList.remove('idling'); idleBtn = null; }
+  }
+  function armIdle() {
+    stopIdle();
+    const k = idleTool();
+    if (!k || !opts.idleOff) return;
+    idleBtn = document.getElementById(k === 'draw' ? 'tDraw' : k === 'erase' ? 'tErase' : 'tShapes');
+    idleBtn.style.setProperty('--idle', opts.idleOff + 's');
+    void idleBtn.offsetWidth;   // restart the drain animation
+    idleBtn.classList.add('idling');
+    idleTimer = setTimeout(idleExpired, opts.idleOff * 1000);
+  }
+  function idleExpired() {
+    idleTimer = null;
+    if (mode !== null || !pop.hidden || (opts.line && linePts.length)) { armIdle(); return; }   // busy: wait for another pause
+    stopIdle();
+    const k = idleTool(); if (!k) return;
+    for (const key of IDLE_KEYS) setMode(key, false);
+    linePts = []; syncShapesBtn(); setCursor(); updateReadout(); requestDraw();
+    toast('Drawing tool off. Tap it again to keep drawing.');
+  }
+  document.getElementById('idleOff').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    opts.idleOff = Number(b.dataset.v);
+    document.querySelectorAll('#idleOff button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    try { localStorage.setItem('sketch.idleOff', String(opts.idleOff)); } catch (err) { /* storage blocked */ }
+    armIdle();
   });
   // Line, Rectangle and Circle share one tool-bar button that opens a small picker
   function syncShapesBtn() { shapesBtn.setAttribute('aria-pressed', String(!!(opts.line || opts.rect || opts.circle))); }
