@@ -15,7 +15,7 @@
   body > header { padding-top: calc(8px + env(safe-area-inset-top, 0px)); }
 </style>
 <title>Site Sketch</title>
-<meta name="app-version" content="1.11.2">
+<meta name="app-version" content="1.12.0">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;500;600&display=swap">
 <style>
@@ -132,6 +132,7 @@
   }
   .sheet .field { display: grid; gap: 4px; }
   .sheet .btns { display: flex; gap: 6px; justify-content: flex-end; }
+  .warn { margin: 0; font-size: 14px; line-height: 1.4; color: var(--pick); font-weight: 500; }
   .toast {
     position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); background: var(--ink); color: var(--paper);
     padding: 7px 12px; border-radius: 6px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 20; max-width: calc(100% - 32px);
@@ -158,6 +159,7 @@
       display: none; position: absolute; top: 100%; right: 8px; z-index: 12; min-width: 200px;
       background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px;
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16); flex-direction: column; gap: 4px;
+      max-height: calc(100vh - 70px); overflow-y: auto; overscroll-behavior: contain;
     }
     .hactions.open { display: flex; }
     .hactions button { text-align: left; min-height: 44px; }
@@ -206,6 +208,8 @@
     <button class="action" id="gridRef" title="Line the drawing grid up with a survey line">Grid line</button>
     <button class="action" id="openSurvey">Survey…</button>
     <button class="action" id="openExport">Export…</button>
+    <button class="action" id="saveProject" title="Save the drawing, dimensions, survey and grid in one file">Save project…</button>
+    <button class="action" id="openProject" title="Open a project file saved from Site Sketch">Open project…</button>
     <button class="action" id="checkUpdate" hidden>Check for updates</button>
     <div class="about"><b>Site Sketch</b> <span class="ver"></span><br>by Wiebe&#8217;s Spatial Solutions</div>
   </div>
@@ -300,6 +304,31 @@
     <div class="btns"><button type="button" class="action" id="surveyClose">Close</button></div>
   </form>
 
+  <!-- project files: one .sitesketch file holds the whole project (see CLAUDE.md "Project files") -->
+  <input type="file" id="projFile" hidden accept=".sitesketch,.json,application/json">
+
+  <form class="sheet" id="saveSheet" hidden autocomplete="off">
+    <h2 style="margin:0;font-size:14px">Save project</h2>
+    <p class="status">One file with the drawing, dimensions, layers, survey and grid. Open it again with Open project… on this or another device.</p>
+    <label class="field"><span class="label">Project name</span><input type="text" id="projName"></label>
+    <p class="status" id="saveNote"></p>
+    <div class="btns">
+      <button type="button" class="action" id="saveCancel">Cancel</button>
+      <button type="submit" class="primary" id="saveGo">Save file</button>
+    </div>
+  </form>
+
+  <form class="sheet" id="openSheet" hidden autocomplete="off" role="alertdialog" aria-labelledby="openTitle" aria-describedby="openInfo">
+    <h2 style="margin:0;font-size:14px" id="openTitle">Open project?</h2>
+    <p class="status" id="openInfo" style="white-space: pre-line"></p>
+    <p class="warn" id="openWarn" hidden></p>
+    <p style="margin:0;font-size:14px;line-height:1.4">This replaces the drawing and survey you have open now. Save your current project first if you want to keep it.</p>
+    <div class="btns">
+      <button type="button" class="action" id="openCancel">Cancel</button>
+      <button type="submit" class="primary" id="openGo">Replace project</button>
+    </div>
+  </form>
+
   <div class="toast" id="toast"></div>
 </main>
 
@@ -325,10 +354,11 @@
     drawing: null, survey: [], header: null, cs: '', file: '', gridUnit: 'm',
     T: { a: 0, e: 0, n: 0 }, geo: false, placed: false,
     step: 1, pk: {}, flip: false, base: null,
-    view: null, fmt: 'csv', scope: 'new', outName: ''
+    view: null, fmt: 'csv', scope: 'new', outName: '', refLine: null, projName: ''
   };
+  const FRESH = JSON.stringify(G);   // a blank project, for fields an opened project file doesn't have
   const KEY = 'emlid.georef.v1';
-  const PERSIST = ['drawing', 'survey', 'header', 'cs', 'file', 'gridUnit', 'T', 'geo', 'placed', 'view', 'fmt', 'scope', 'outName', 'refLine'];
+  const PERSIST = ['drawing', 'survey', 'header', 'cs', 'file', 'gridUnit', 'T', 'geo', 'placed', 'view', 'fmt', 'scope', 'outName', 'refLine', 'projName'];
   function save() { try { const o = {}; for (const k of PERSIST) o[k] = G[k]; localStorage.setItem(KEY, JSON.stringify(o)); } catch (e) { /* keep going in memory */ } }
   function load() { try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (o) Object.assign(G, o); } catch (e) {} }
   load();
@@ -597,6 +627,7 @@
     pushUndo();
     const newSite = label !== G.file;
     G.survey = feats; G.header = header; G.cs = cs || G.cs || ''; G.file = label; G.outName = '';
+    if (newSite) G.projName = '';
     if (/feet|foot|ft\b/i.test(G.cs) && G.gridUnit === 'm') G.gridUnit = /us/i.test(G.cs) ? 'usft' : 'ft';
     // a different survey is a different site: put the drawing on it and start the steps again
     if (newSite || !G.placed) {
@@ -825,13 +856,16 @@
   // In Claude, saving goes through the viewer's save prompt; opened as a plain file, a normal download.
   const dlCap = window.claude && window.claude.use ? window.claude.use('downloads').catch(() => null) : Promise.resolve(null);
   async function deliver(name, text) {
+    const proj = /\.sitesketch$/i.test(name);
     // installed app (not inside Claude): hand the file to the phone's share sheet — Emlid Flow, Files, AirDrop, Mail
     if (!window.claude && navigator.canShare) {
-      const types = /\.csv$/i.test(name) ? ['text/csv', 'text/plain'] : /\.zip$/i.test(name) ? ['application/zip'] : ['application/dxf', 'text/plain'];
-      for (const type of types) {
-        const file = new File([text], name, { type });
+      // a project keeps its .sitesketch name if the phone takes it; otherwise it goes as .sitesketch.json
+      const tries = proj ? [[name, 'application/json'], [name, 'application/octet-stream'], [name + '.json', 'application/json']]
+        : (/\.csv$/i.test(name) ? ['text/csv', 'text/plain'] : /\.zip$/i.test(name) ? ['application/zip'] : ['application/dxf', 'text/plain']).map(t => [name, t]);
+      for (const [fname, type] of tries) {
+        const file = new File([text], fname, { type });
         if (!navigator.canShare({ files: [file] })) continue;
-        try { await navigator.share({ files: [file], title: name }); toast(`Shared ${name}`); }
+        try { await navigator.share({ files: [file], title: fname }); toast(`Shared ${fname}`); }
         catch (e) { if (e && e.name !== 'AbortError') toast('Sharing did not work here. Try again.'); }
         return;
       }
@@ -840,6 +874,7 @@
     if (dl) {
       let filename = name, data = text;
       if (/\.dxf$/i.test(name)) { filename = name.replace(/\.dxf$/i, '-dxf.zip'); data = zipStore([{ name, text }]); }
+      if (proj) filename = name + '.json';   // the save prompt takes .json but not .sitesketch
       try { await dl.save({ filename, data }); toast(`Saved ${filename}`); }
       catch (e) {
         const c = e && e.code;
@@ -851,7 +886,7 @@
       return;
     }
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(text instanceof Blob ? text : new Blob([text], { type: 'text/plain' })); a.download = name;
+    a.href = URL.createObjectURL(text instanceof Blob ? text : new Blob([text], { type: proj ? 'application/json' : 'text/plain' })); a.download = name;
     document.body.appendChild(a); a.click();
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
     toast(`Saved ${name}`);
@@ -1154,7 +1189,7 @@
     render();
   }
 
-  const sheets = [$('exportSheet'), $('surveySheet')];
+  const sheets = [$('exportSheet'), $('surveySheet'), $('saveSheet'), $('openSheet')];
   const closeSheets = () => sheets.forEach(s => { s.hidden = true; });
   $('openSurvey').addEventListener('click', () => { const open = $('surveySheet').hidden; closeSheets(); $('surveySheet').hidden = !open; refresh(); });
   $('surveyClose').addEventListener('click', closeSheets);
@@ -1208,6 +1243,90 @@
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && G.gridPick) { G.gridPick = false; refresh(); return; }
     if (e.key === 'Escape') { if (!sheets.every(s => s.hidden)) closeSheets(); else if (G.pk.dEdge || G.pk.dPt) { G.pk = G.step === 2 ? { aligned: G.pk.aligned } : {}; refresh(); } }
+  });
+
+  // ---------- project files (.sitesketch): the whole project in one file ----------
+  // { format: 'site-sketch-project', version: 1, appVersion, saved, name, project: { every PERSIST field } }
+  const PROJ_FORMAT = 'site-sketch-project', PROJ_VERSION = 1;
+  const siteName = () => (G.file && !/^\d+ files$/.test(G.file) ? G.file.replace(/\.[^.]+$/, '') : '');
+  const safeName = t => String(t || '').trim().replace(/[\/:*?"<>|]+/g, '-').replace(/\s+/g, '-');
+  const today = () => { const d = new Date(), z = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`; };
+  const projFileName = () => `${safeName($('projName').value) || safeName(G.projName) || safeName(siteName()) || 'site-sketch'}-${today()}.sitesketch`;
+  const verNum = v => String(v || '0').split('.').map(n => parseInt(n, 10) || 0);
+  const newerThan = (a, b) => { const x = verNum(a), y = verNum(b); for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); return false; };
+  const countOf = (n, one) => `${n} ${one}${n === 1 ? '' : 's'}`;
+  function projSummary(p) {
+    const d = p.drawing || {}, shapes = (d.shapes || []).length, dims = (d.dimensions || []).length;
+    const nl = (p.survey || []).filter(f => f && f.kind === 'line').length, np = (p.survey || []).length - nl;
+    return [countOf(shapes, 'shape'), dims ? countOf(dims, 'dimension') : '', p.survey && p.survey.length ? `survey ${p.file || ''} (${np} points, ${nl} lines)` : 'no survey',
+      p.refLine ? 'grid set from a survey line' : ''].filter(Boolean).join(' · ');
+  }
+  function saveNote() { $('saveNote').textContent = `File: ${projFileName()}${window.claude ? '.json' : ''}`; }
+  $('saveProject').addEventListener('click', () => {
+    const open = $('saveSheet').hidden; closeSheets();
+    $('projName').value = G.projName || siteName();
+    saveNote();
+    $('saveSheet').hidden = !open;
+  });
+  $('projName').addEventListener('input', saveNote);
+  $('saveCancel').addEventListener('click', closeSheets);
+  $('saveSheet').addEventListener('submit', e => {
+    e.preventDefault();
+    G.projName = $('projName').value.trim(); save();
+    const project = {};
+    for (const k of PERSIST) project[k] = G[k] === undefined ? null : G[k];
+    const file = { format: PROJ_FORMAT, version: PROJ_VERSION, appVersion: APP_VERSION, saved: new Date().toISOString(), name: G.projName || siteName(), project };
+    deliver(projFileName(), JSON.stringify(file));   // straight from the tap, so the phone's share sheet is allowed
+    closeSheets();
+  });
+
+  // Opening: read the file, check it is a Site Sketch project, then ask before replacing what is open
+  // iPhones grey out files whose type they don't know (.sitesketch), so there the picker takes any file; we check it here
+  if (/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) $('projFile').removeAttribute('accept');
+  let pendingProj = null;
+  $('openProject').addEventListener('click', () => { closeSheets(); $('projFile').click(); });
+  $('projFile').addEventListener('change', async e => {
+    const f = e.target.files && e.target.files[0]; e.target.value = '';
+    if (!f) return;
+    const bad = () => toast(`${f.name} is not a Site Sketch project file. Choose a .sitesketch file saved with Save project…`);
+    let o;
+    try { o = JSON.parse(await f.text()); } catch (err) { return bad(); }
+    const p = o && o.project;
+    if (!o || o.format !== PROJ_FORMAT || !p || typeof p !== 'object') return bad();
+    if (p.drawing != null && (typeof p.drawing !== 'object' || !Array.isArray(p.drawing.shapes))) return bad();
+    if (p.survey != null && !Array.isArray(p.survey)) return bad();
+    const warn = [];
+    if (newerThan(o.appVersion, APP_VERSION)) warn.push(`This file was saved with a newer version of Site Sketch (v${o.appVersion}; you have v${APP_VERSION}). Parts of it may not open correctly. ${$('checkUpdate').hidden ? 'Use the newest Site Sketch to open it.' : 'Update first: ⋯ → Check for updates.'}`);
+    else if (+o.version > PROJ_VERSION) warn.push('This file was saved with a newer version of Site Sketch. Parts of it may not open correctly.');
+    pendingProj = o;
+    closeSheets();
+    const when = o.saved && !isNaN(Date.parse(o.saved)) ? new Date(o.saved).toLocaleString() : '';
+    $('openTitle').textContent = `Open ${o.name || f.name}?`;
+    $('openInfo').textContent = `${f.name}${when ? ' · saved ' + when : ''}\n${projSummary(p)}`;
+    $('openWarn').textContent = warn.join(' '); $('openWarn').hidden = !warn.length;
+    $('openSheet').hidden = false;
+    $('openCancel').focus();
+  });
+  $('openCancel').addEventListener('click', () => { pendingProj = null; closeSheets(); });
+  $('openSheet').addEventListener('submit', e => {
+    e.preventDefault();
+    const o = pendingProj; pendingProj = null; closeSheets();
+    if (!o) return;
+    const fresh = JSON.parse(FRESH), p = o.project;
+    for (const k of PERSIST) G[k] = p[k] !== undefined && p[k] !== null ? p[k] : fresh[k];
+    if (!Array.isArray(G.survey)) G.survey = [];
+    if (!G.T || !isFinite(G.T.a)) G.T = fresh.T;
+    G.step = G.geo ? 3 : 1; G.pk = {}; G.flip = false; G.base = null; G.gridPick = false;
+    undoStack.length = 0;
+    save();
+    toSketch(G.drawing ? { type: 'load', id: 4, drawing: G.drawing } : { type: 'clear' });
+    lastBg = null; sendBackground();
+    toSketch({ type: 'fit' });
+    if (!G.view) fitView();
+    for (const id of ['fmt', 'scope']) for (const x of $(id).querySelectorAll('button')) x.setAttribute('aria-pressed', String(x.dataset.v === G[id]));
+    setPanel(!G.geo);
+    refresh();
+    toast(`Opened ${o.name || 'project'}`);
   });
 
   // ---------- theme & start ----------

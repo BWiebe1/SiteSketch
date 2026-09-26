@@ -4089,7 +4089,10 @@
   const recomputeAll = () => { updateReadout(); requestDraw(); };
   const history = [];
   const future = [];   // undone steps, for Redo; any new edit clears it
-  function pushHistory() { history.push({ shapes: shapes.slice(), annots: annots.slice() }); if (history.length > 100) history.shift(); future.length = 0; }
+  function pushHistory() {
+    history.push({ shapes: shapes.slice(), annots: annots.slice() }); if (history.length > 100) history.shift(); future.length = 0;
+    setTimeout(notifyChanged, 0);   // after the edit that follows (adding a dimension doesn't go through updateReadout)
+  }
   const toast = msg => {
     const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
     clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('show'), 1800);
@@ -4288,13 +4291,44 @@
     });
     return out.length ? { arcs: out } : {};
   }
+  // dimensions travel with the drawing, anchored by shape index (in the exported shapes list), ring, edge and t
+  const DIM_KIND_OUT = { dist: 'distance', pts: 'points', ang: 'angle' }, DIM_KIND_IN = { distance: undefined, points: 'pts', angle: 'ang' };
+  function dimsOut(live) {
+    const idx = new Map(live.map((s, i) => [s.id, i]));
+    const anchor = an => an && idx.has(an.sid) ? { shape: idx.get(an.sid), ring: an.ri, edge: an.ei, t: +(+an.t || 0).toFixed(6) } : null;
+    const out = [];
+    for (const d of annots) {
+      const a = anchor(d.a), b = anchor(d.b);
+      if (a && b) out.push({ kind: DIM_KIND_OUT[d.kind || 'dist'], a, b });
+    }
+    return out.length ? { dimensions: out } : {};
+  }
+  function dimsIn(list, made) {
+    if (!Array.isArray(list)) return [];
+    const anchor = an => {
+      const s = an && made[an.shape | 0];
+      return s && Number.isInteger(an.ring) && Number.isInteger(an.edge) && isFinite(an.t) ? { sid: s.id, ri: an.ring, ei: an.edge, t: Math.max(0, Math.min(1, +an.t)) } : null;
+    };
+    const out = [];
+    for (const d of list) {
+      if (!d || !(d.kind in DIM_KIND_IN)) continue;
+      const a = anchor(d.a), b = anchor(d.b);
+      if (!a || !b) continue;
+      const kind = DIM_KIND_IN[d.kind];
+      out.push(kind ? { kind, a, b } : { a, b });
+    }
+    return out;
+  }
   function exportDrawing() {
     const k = sq.val / GRID;
     const toUnits = ring => ring.map(p => [+(p.x * k).toFixed(4), +(-p.y * k).toFixed(4)]);
+    ensureIds();
+    const live = shapes.filter(s => s.result);
     return {
       format: 'emlid-sketch', version: 1, units: sq.unit, gridSquare: sq.val,
       layers: layers.map(l => ({ name: l.name, on: l.on })),
-      shapes: shapes.filter(s => s.result).map(s => ({
+      ...dimsOut(live),
+      shapes: live.map(s => ({
         layer: layerOf(s),
         closed: s.result.closed,
         vertices: toUnits(s.result.verts),
@@ -4315,7 +4349,7 @@
     const toWorldRing = ring => ring.map(([x, y]) => ({ x: x / k, y: -y / k }));
     pushHistory();
     shapes = data.shapes.filter(sh => Array.isArray(sh.vertices) && sh.vertices.length >= 1).map(sh => ({
-      raw: [], px: 1, fixed: true, layer: sh.layer >= 1 && sh.layer <= LAYER_COUNT ? sh.layer : 1, ...(sh.circle ? { circle: true } : {}), ...(sh.locked ? { locked: true } : {}),
+      id: ++nextId, raw: [], px: 1, fixed: true, layer: sh.layer >= 1 && sh.layer <= LAYER_COUNT ? sh.layer : 1, ...(sh.circle ? { circle: true } : {}), ...(sh.locked ? { locked: true } : {}),
       result: { verts: toWorldRing(sh.vertices), closed: !!sh.closed, holes: (sh.holes || []).map(toWorldRing) }
     }));
     data.shapes.filter(sh => Array.isArray(sh.vertices) && sh.vertices.length >= 1).forEach((sh, n) => {
@@ -4327,7 +4361,7 @@
         for (let j = 0; j < a.count; j++) { const q = ring[(a.start + j) % ring.length]; if (q) q.arc = { id, r: a.radius / k }; }
       }
     });
-    annots = []; selected = null; group = []; lasso = null;
+    annots = dimsIn(data.dimensions, shapes); selected = null; group = []; lasso = null;
     updateReadout(); requestDraw();
     return true;
   }
