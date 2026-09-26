@@ -513,7 +513,7 @@
   const layerOf = sh => sh.layer || layerNow;   // a shape made a moment ago is on the current layer
   const layerOn = sh => layers[layerOf(sh) - 1] ? layers[layerOf(sh) - 1].on : true;
   const onWork = sh => layerOf(sh) === layerNow && layerOn(sh);
-  const workShapes = () => shapes.filter(onWork);       // { raw, result, example }
+  const workShapes = () => shapes.filter(onWork);       // { raw, result }
   let live = null;       // points of stroke in progress
   let colors = {};
 
@@ -2977,17 +2977,14 @@
       return;
     }
     const last = selected && selected.result ? selected : real[real.length - 1];
-    const ex = shapes.some(s => s.example);
     if (!last) { readout.innerHTML = 'Draw a shape anywhere on the grid.'; return; }
     const r = last.result, ci = circleOf(last);
     if (isPoint(last)) {
-      readout.innerHTML = (ex ? 'Example shapes are loaded. Press <strong>Clear</strong> to start with an empty sheet.<br>' : '') +
-        `<strong>${last === selected ? 'Selected · ' : ''}Point${last.locked ? ' · locked' : ''}</strong><br>${real.length} shape${real.length === 1 ? '' : 's'}`;
+      readout.innerHTML = `<strong>${last === selected ? 'Selected · ' : ''}Point${last.locked ? ' · locked' : ''}</strong><br>${real.length} shape${real.length === 1 ? '' : 's'}`;
       return;
     }
     if (ci) {
       readout.innerHTML =
-        (ex ? 'Example shapes are loaded. Press <strong>Clear</strong> to start with an empty sheet.<br>' : '') +
         `<strong>${last === selected ? 'Selected · ' : ''}Circle</strong> · radius ${fmtLen(ci.r)} · diameter ${fmtLen(2 * ci.r)}<br>` +
         `${real.length} shape${real.length === 1 ? '' : 's'}`;
       return;
@@ -3001,7 +2998,6 @@
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const p of r.verts) { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); }
     readout.innerHTML =
-      (ex ? 'Example shapes are loaded. Press <strong>Clear</strong> to start with an empty sheet.<br>' : '') +
       `<strong>${last === selected ? 'Selected · ' : ''}${r.closed ? 'Closed' : 'Open'}${last.locked ? ' · locked' : ''}</strong> · ${edges} edge${edges === 1 ? '' : 's'} · ${fmtLen(maxX - minX)} × ${fmtLen(maxY - minY)}<br>` +
       `corners ${cornerText}${curves ? ` · ${curves} rounded` : ''} · ${real.length} shape${real.length === 1 ? '' : 's'}`;
   }
@@ -4372,45 +4368,6 @@
   mq.addEventListener ? mq.addEventListener('change', retheme) : mq.addListener(retheme);
   new MutationObserver(retheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
-  // ---------- example strokes ----------
-  function wobbly(poly, closed, seed) {
-    let s = seed;
-    const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280 - 0.5; };
-    const path = closed ? poly.concat([poly[0]]) : poly;
-    let pts = [];
-    for (let i = 0; i < path.length - 1; i++) {
-      const a = path[i], b = path[i + 1], L = dist(a, b), n = Math.max(2, Math.round(L / 6));
-      const bow = rnd() * L * 0.05;
-      for (let j = 0; j < n; j++) {
-        const t = j / n, bend = Math.sin(t * Math.PI) * bow, d = norm(sub(b, a));
-        pts.push({ x: a.x + (b.x - a.x) * t - d.y * bend + rnd() * 2.5, y: a.y + (b.y - a.y) * t + d.x * bend + rnd() * 2.5 });
-      }
-    }
-    pts.push({ ...path[path.length - 1] });
-    for (let k = 0; k < 2; k++) pts = smooth(pts);
-    if (closed) pts.push({ x: pts[0].x + 9, y: pts[0].y + 5 }); // imperfect close
-    return pts;
-  }
-  function loadExamples() {
-    const r = stage.getBoundingClientRect();
-    const sc = Math.min(0.75, r.width / 1100), ox = Math.max(24, r.width * 0.06), oy = 70;
-    const P = (x, y) => ({ x: ox + x * sc, y: oy + y * sc });
-    // hand-drawn L with loose rounded corners and an overshooting close
-    const lShape = [[557,203],[600,207],[655,228],[695,260],[707,300],[700,340],[690,390],[692,430],[720,462],[770,473],
-      [890,472],[965,478],[985,495],[1000,530],[998,580],[985,630],[970,675],[940,705],[880,718],[800,722],[700,715],
-      [600,710],[510,707],[450,703],[415,690],[390,655],[378,620],[373,570],[378,500],[388,430],[391,350],[388,270],
-      [382,230],[378,205],[390,193],[430,200],[490,198],[540,196],[580,200],[605,210],[622,219]]
-      .map(([x, y]) => P(x - 370, y - 190));
-    let lRaw = resample(lShape, 5);
-    for (let k = 0; k < 3; k++) lRaw = smooth(lRaw);
-    shapes.push({ raw: lRaw, px: 1, result: recognizeAt(lRaw, opts, 1), example: true });
-    // plate with two 45° chamfers
-    const plate = [P(740, 20), P(960, 20), P(1020, 80), P(1020, 260), P(800, 260), P(740, 200)]
-      .map((p, i) => ({ x: p.x + [5, -6, 4, -5, 6, -4][i], y: p.y + [-5, 4, -6, 5, -3, 6][i] }));
-    const pRaw = wobbly(plate, true, 11);
-    shapes.push({ raw: pRaw, px: 1, result: recognizeAt(pRaw, opts, 1), example: true });
-  }
-
   // ---------- survey background from a host (display only, in local drawing units, y up) ----------
   let background = null;   // { lines: [{ closed, vertices }], points: [[x, y, name]], gridLine?: [[x, y], [x, y]] }
   function drawBackground() {
@@ -4493,7 +4450,6 @@
   setCursor();
   new ResizeObserver(resize).observe(stage);
   resize();
-  if (!embedded) loadExamples();   // a host component supplies its own drawing
   updateReadout(); draw();
   post({ type: 'ready' });
   if (document.fonts) document.fonts.ready.then(() => requestDraw());
