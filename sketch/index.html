@@ -982,7 +982,7 @@
   // other layers: drawn off-screen, then laid down faded, and never recorded as tappable
   let fadeCv = null;
   function drawFaded(list) {
-    if (!list.length) return;
+    if (!list.length || !cv.width || !cv.height) return;   // hidden (zero-size) view: nothing to draw onto
     if (!fadeCv || fadeCv.width !== cv.width || fadeCv.height !== cv.height) { fadeCv = document.createElement('canvas'); fadeCv.width = cv.width; fadeCv.height = cv.height; }
     const fctx = fadeCv.getContext('2d'), dpr = cv.width / (cssW || 1), main = ctx;
     fctx.setTransform(1, 0, 0, 1, 0, 0); fctx.clearRect(0, 0, fadeCv.width, fadeCv.height); fctx.setTransform(dpr, 0, 0, dpr, 0, 0);

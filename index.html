@@ -15,7 +15,7 @@
   body > header { padding-top: calc(8px + env(safe-area-inset-top, 0px)); }
 </style>
 <title>Site Sketch</title>
-<meta name="app-version" content="1.12.0">
+<meta name="app-version" content="1.12.1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;500;600&display=swap">
 <style>
@@ -239,7 +239,6 @@
       <p id="surveyInfo">No survey loaded yet.</p>
       <div class="row">
         <button class="action" id="loadSurvey2">Load survey…</button>
-        <button class="action" id="useSample">Try the Agwest sample</button>
       </div>
       <div class="step" id="step0">
         <h2><span class="num">#</span> Grid</h2>
@@ -291,7 +290,6 @@
     <p class="status" id="surveySheetInfo">No survey loaded.</p>
     <div class="row" style="display:flex;gap:6px;flex-wrap:wrap">
       <button type="button" class="primary" id="pickFile">Choose files…</button>
-      <button type="button" class="action" id="useSample2">Agwest sample</button>
     </div>
     <p class="status">CSV from Emlid Flow ("All columns"), DXF, or a Shapefile (.shp with its .dbf and .prj, or a .zip of them). Lines are read from codes like L_1, L_2.</p>
     <label class="field"><span class="label">Survey grid units</span>
@@ -675,18 +673,6 @@
     toSketch({ type: 'load', id: 3, drawing: G.drawing });
   }
   $('gridRef').addEventListener('click', () => { if (!G.survey.length) return toast('Load a survey first'); startGridPick(); });
-
-  async function useSample() {
-    for (const path of ['agwest-russel.csv', '../layout-app/agwest-russel.csv']) {
-      try {
-        const r = await fetch(path);
-        if (!r.ok) continue;
-        const res = parseSurveyCSV(await r.text());
-        if (res.feats.length) { finishImport(res.feats, res.header, res.cs, 'agwest-russel.csv', []); closeSheets(); return; }
-      } catch (e) { /* try the next place */ }
-    }
-    toast('The sample survey is not available here');
-  }
 
   // ---------- export ----------
   function exportFeats() {
@@ -1195,8 +1181,6 @@
   $('surveyClose').addEventListener('click', closeSheets);
   $('loadSurvey2').addEventListener('click', () => $('file').click());
   $('pickFile').addEventListener('click', () => $('file').click());
-  $('useSample').addEventListener('click', useSample);
-  $('useSample2').addEventListener('click', useSample);
   $('file').addEventListener('change', e => { importFiles(e.target.files); e.target.value = ''; closeSheets(); });
   $('gridUnit').addEventListener('change', e => { G.gridUnit = e.target.value; save(); refresh(); });
 

@@ -1,5 +1,5 @@
-const CACHE = 'site-sketch-1.12.0-20260925-193117';
-const FILES = ['./', 'index.html', 'sketch/index.html', 'agwest-russel.csv', 'manifest.webmanifest',
+const CACHE = 'site-sketch-1.12.1-20260925-194049';
+const FILES = ['./', 'index.html', 'sketch/index.html', 'manifest.webmanifest',
   'icons/apple-touch-icon.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png'];
 // fetch every file past the browser's own cache (GitHub Pages lets it keep pages for 10 minutes)
 const fresh = url => fetch(new Request(url, { cache: 'reload' }));
@@ -32,7 +32,7 @@ self.addEventListener('fetch', e => {
         return (await hit()) || res;
       } catch (err) { return (await hit()) || Response.error(); }
     }
-    // icons, fonts, sample: the saved copy at once, refreshed in the background
+    // icons and fonts: the saved copy at once, refreshed in the background
     const saved = await hit();
     const net = fetch(req, { cache: 'no-cache' }).then(res => { if (res && (res.ok || res.type === 'opaque')) cache.put(req, res.clone()); return res; }).catch(() => saved);
     return saved || net;
