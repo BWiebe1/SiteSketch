@@ -15,7 +15,7 @@
   body > header { padding-top: calc(8px + env(safe-area-inset-top, 0px)); }
 </style>
 <title>Site Sketch</title>
-<meta name="app-version" content="1.12.2">
+<meta name="app-version" content="1.12.3">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;500;600&display=swap">
 <style>
@@ -153,7 +153,7 @@
     .brand { flex: 0 1 auto; min-width: 0; }
     h1 { overflow: hidden; text-overflow: ellipsis; }
     #tabGeo { font-size: 0; }
-    #tabGeo::after { content: 'Georef'; font-size: 14px; }
+    #tabGeo::after { content: 'Survey'; font-size: 14px; }
     #more { display: inline-block; }
     .hactions {
       display: none; position: absolute; top: 100%; right: 8px; z-index: 12; min-width: 200px;
@@ -199,12 +199,12 @@
   </div>
   <div class="seg" role="tablist" aria-label="View">
     <button id="tabDraw" role="tab" aria-pressed="true">Draw</button>
-    <button id="tabGeo" role="tab" aria-pressed="false">Georeference</button>
+    <button id="tabGeo" role="tab" aria-pressed="false">Survey</button>
   </div>
   <div class="spacer"></div>
   <button class="action" id="more" aria-expanded="false" aria-controls="hactions" aria-label="More">⋯</button>
   <div class="hactions" id="hactions">
-    <button class="action" id="undo" title="Undo the last georeference change" hidden>Undo</button>
+    <button class="action" id="undo" title="Undo the last change on the Survey tab" hidden>Undo</button>
     <button class="action" id="gridRef" title="Line the drawing grid up with a survey line">Grid line</button>
     <button class="action" id="openSurvey">Survey…</button>
     <button class="action" id="openExport">Export…</button>
@@ -229,10 +229,10 @@
       </div>
       <button class="action" id="zFit">Fit</button>
     </div>
-    <button class="reopen" id="reopen" hidden title="Open the georeference steps again">Georeferenced · Edit</button>
+    <button class="reopen" id="reopen" hidden title="Open the survey panel again">Survey · Edit</button>
     <div class="panel" id="panel">
       <div class="row" style="justify-content: space-between">
-        <h2>Georeference</h2>
+        <h2>Load Survey .DXF</h2>
         <button class="action" id="hidePanel" title="Hide the steps to see the map">Hide</button>
         <span class="badge" id="geoBadge" hidden>Georeferenced</span>
       </div>
@@ -241,7 +241,7 @@
         <button class="action" id="loadSurvey2">Load survey…</button>
       </div>
       <div class="step" id="step0">
-        <h2><span class="num">#</span> Grid</h2>
+        <h2><span class="num">#</span> Grid Alignment</h2>
         <p id="s0text">Tap a survey line to turn the grid to it.</p>
         <div class="row">
           <button class="action" id="gridPickBtn">Set from a survey line</button>
@@ -641,7 +641,7 @@
     toast(`Survey loaded: ${feats.length - nl} points, ${nl} lines${skipped.length ? ` · skipped ${skipped.length} file${skipped.length > 1 ? 's' : ''}` : ''}`);
   }
   const hasSurveyLines = () => G.survey.some(f => f.kind === 'line' && f.pts.some((p, i) => i && dist(p, f.pts[i - 1]) > 1e-6));
-  // Grid direction is set in the Georeference tab: tap a survey line and the grid turns the least amount
+  // Grid direction is set in the Survey tab: tap a survey line and the grid turns the least amount
   // to line up with it — never flipped, reversed or turned more than 45°.
   function startGridPick() {
     if (!hasSurveyLines()) return toast('This survey has no lines to set the grid from');
@@ -910,7 +910,7 @@
     $('tabDraw').setAttribute('aria-pressed', String(!geo));
     $('tabGeo').setAttribute('aria-pressed', String(geo));
     drawView.hidden = geo; geoView.hidden = !geo;
-    $('undo').hidden = !geo;   // georeference undo belongs to the Georeference tab; the sketch has its own
+    $('undo').hidden = !geo;   // this undo belongs to the Survey tab; the sketch has its own
     closeSheets();
     if (geo) { resize(); if (!G.view) fitView(); refresh(); }
   }
@@ -1081,10 +1081,10 @@
     return;
   }
   $('gridPickBtn').addEventListener('click', () => { if (!G.survey.length) return toast('Load a survey first'); if (G.gridPick) { G.gridPick = false; refresh(); } else startGridPick(); });
-  // the steps panel closes on Done; the "Georeferenced · Edit" button brings it back
+  // the survey panel closes on Done; the "Survey · Edit" button brings it back
   function setPanel(open) {
     $('panel').hidden = !open; $('reopen').hidden = open;
-    $('reopen').textContent = G.geo ? 'Georeferenced · Edit' : 'Georeference steps';
+    $('reopen').textContent = G.geo ? 'Survey · Edit' : 'Survey panel';
   }
   $('hidePanel').addEventListener('click', () => setPanel(false));
   $('reopen').addEventListener('click', () => setPanel(true));
