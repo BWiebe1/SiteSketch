@@ -15,7 +15,7 @@
   body > header { padding-top: calc(8px + env(safe-area-inset-top, 0px)); }
 </style>
 <title>Site Sketch</title>
-<meta name="app-version" content="1.12.3">
+<meta name="app-version" content="1.12.4">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;500;600&display=swap">
 <style>
@@ -110,6 +110,8 @@
   .panel h2 { font-size: 13px; margin: 0; font-weight: 600; display: flex; align-items: center; gap: 8px; }
   .panel p { margin: 0; font-size: 14px; line-height: 1.4; color: var(--muted); }
   .panel .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .panel .unitpick { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+  .panel .hint { font-size: 12px; }
   .step { display: grid; gap: 6px; padding-top: 10px; border-top: 1px solid var(--line); }
   .step.current h2 { color: var(--pick); }
   .num {
@@ -205,8 +207,6 @@
   <button class="action" id="more" aria-expanded="false" aria-controls="hactions" aria-label="More">⋯</button>
   <div class="hactions" id="hactions">
     <button class="action" id="undo" title="Undo the last change on the Survey tab" hidden>Undo</button>
-    <button class="action" id="gridRef" title="Line the drawing grid up with a survey line">Grid line</button>
-    <button class="action" id="openSurvey">Survey…</button>
     <button class="action" id="openExport">Export…</button>
     <button class="action" id="saveProject" title="Save the drawing, dimensions, survey and grid in one file">Save project…</button>
     <button class="action" id="openProject" title="Open a project file saved from Site Sketch">Open project…</button>
@@ -238,8 +238,16 @@
       </div>
       <p id="surveyInfo">No survey loaded yet.</p>
       <div class="row">
-        <button class="action" id="loadSurvey2">Load survey…</button>
+        <button class="action" id="loadSurvey2">Choose file…</button>
+        <label class="unitpick"><span class="label">Units</span>
+          <select id="gridUnit" aria-label="Survey grid units">
+            <option value="m">metres</option>
+            <option value="usft">US survey feet</option>
+            <option value="ft">international feet</option>
+          </select>
+        </label>
       </div>
+      <p class="hint">DXF, CSV ("All columns") or Shapefile from Emlid Flow. It needs at least one surveyed line.</p>
       <div class="step" id="step0">
         <h2><span class="num">#</span> Grid Alignment</h2>
         <p id="s0text">Tap a survey line to turn the grid to it.</p>
@@ -249,7 +257,6 @@
       </div>
       <div class="step">
         <div class="row">
-          <button class="primary" id="done">Done</button>
           <button class="action" id="replace" title="Put the drawing back in the middle of the survey and start over">Start over</button>
         </div>
         <p class="status" id="tStatus"></p>
@@ -283,23 +290,6 @@
       <button type="button" class="action" id="exportCancel">Cancel</button>
       <button type="submit" class="primary" id="exportGo">Save file</button>
     </div>
-  </form>
-
-  <form class="sheet" id="surveySheet" hidden autocomplete="off">
-    <h2 style="margin:0;font-size:14px">Survey</h2>
-    <p class="status" id="surveySheetInfo">No survey loaded.</p>
-    <div class="row" style="display:flex;gap:6px;flex-wrap:wrap">
-      <button type="button" class="primary" id="pickFile">Choose files…</button>
-    </div>
-    <p class="status">CSV from Emlid Flow ("All columns"), DXF, or a Shapefile (.shp with its .dbf and .prj, or a .zip of them). Lines are read from codes like L_1, L_2.</p>
-    <label class="field"><span class="label">Survey grid units</span>
-      <select id="gridUnit">
-        <option value="m">metres</option>
-        <option value="usft">US survey feet</option>
-        <option value="ft">international feet</option>
-      </select>
-    </label>
-    <div class="btns"><button type="button" class="action" id="surveyClose">Close</button></div>
   </form>
 
   <!-- project files: one .sitesketch file holds the whole project (see CLAUDE.md "Project files") -->
@@ -672,7 +662,6 @@
     G.drawing = { ...G.drawing, shapes: G.drawing.shapes.map(sh => ({ ...sh, vertices: sh.vertices.map(conv), ...(sh.holes ? { holes: sh.holes.map(h => h.map(conv)) } : {}) })) };
     toSketch({ type: 'load', id: 3, drawing: G.drawing });
   }
-  $('gridRef').addEventListener('click', () => { if (!G.survey.length) return toast('Load a survey first'); startGridPick(); });
 
   // ---------- export ----------
   function exportFeats() {
@@ -1088,13 +1077,6 @@
   }
   $('hidePanel').addEventListener('click', () => setPanel(false));
   $('reopen').addEventListener('click', () => setPanel(true));
-  $('done').addEventListener('click', () => {
-    if (!G.survey.length || !G.drawing) return toast('Load a survey and draw something first');
-    pushUndo(); G.geo = true; G.step = 3; save();
-    setPanel(false);   // done: get the steps out of the way
-    refresh();
-    toast('Georeferenced. Export when you are ready.');
-  });
   $('replace').addEventListener('click', () => {
     pushUndo(); G.geo = false; G.step = 1; G.pk = {}; G.flip = false; G.T = { a: 0, e: 0, n: 0 }; G.refLine = null;
     placeDrawing(); fitView(); save(); refresh();
@@ -1167,20 +1149,16 @@
     $('geoBadge').hidden = !G.geo;
     const nl = G.survey.filter(f => f.kind === 'line').length;
     const info = G.survey.length ? `${G.file}: ${G.survey.length - nl} points, ${nl} lines${G.cs ? ' · ' + G.cs : ''}` : 'No survey loaded yet.';
-    $('surveyInfo').textContent = info; $('surveySheetInfo').textContent = info;
+    $('surveyInfo').textContent = info;
     const deg = ((G.T.a * 180 / Math.PI) % 360 + 360) % 360;
     $('tStatus').textContent = G.survey.length && G.drawing ? `${G.geo && G.refLine ? 'Grid lined up with a survey line · ' : ''}Rotation ${deg.toFixed(3)}° · origin E ${G.T.e.toFixed(3)} N ${G.T.n.toFixed(3)}` : '';
-    $('gridRef').disabled = !hasSurveyLines();
     $('gridUnit').value = G.gridUnit;
     render();
   }
 
-  const sheets = [$('exportSheet'), $('surveySheet'), $('saveSheet'), $('openSheet')];
+  const sheets = [$('exportSheet'), $('saveSheet'), $('openSheet')];
   const closeSheets = () => sheets.forEach(s => { s.hidden = true; });
-  $('openSurvey').addEventListener('click', () => { const open = $('surveySheet').hidden; closeSheets(); $('surveySheet').hidden = !open; refresh(); });
-  $('surveyClose').addEventListener('click', closeSheets);
   $('loadSurvey2').addEventListener('click', () => $('file').click());
-  $('pickFile').addEventListener('click', () => $('file').click());
   $('file').addEventListener('change', e => { importFiles(e.target.files); e.target.value = ''; closeSheets(); });
   $('gridUnit').addEventListener('change', e => { G.gridUnit = e.target.value; save(); refresh(); });
 
