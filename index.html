@@ -15,7 +15,7 @@
   body > header { padding-top: calc(8px + env(safe-area-inset-top, 0px)); }
 </style>
 <title>Site Sketch</title>
-<meta name="app-version" content="1.12.5">
+<meta name="app-version" content="1.13.0">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;500;600&display=swap">
 <style>
@@ -247,6 +247,7 @@
           </select>
         </label>
       </div>
+      <p class="hint" id="unitNote"></p>
       <p class="hint">DXF, CSV ("All columns") or Shapefile from Emlid Flow. It needs at least one surveyed line.</p>
       <div class="step" id="step0">
         <h2><span class="num">#</span> Grid Alignment</h2>
@@ -331,7 +332,7 @@
   const EMLID_HDR = ['Name','Code','Control code','Code description','Easting','Northing','Elevation','Description','Longitude','Latitude','Ellipsoidal height','Origin','Easting RMS','Northing RMS','Elevation RMS','Lateral RMS','Antenna height','Antenna height units','Solution status','Correction type','Averaging start','Averaging end','Samples','PDOP','GDOP','Base easting','Base northing','Base elevation','Base longitude','Base latitude','Base ellipsoidal height','Baseline','Mount point','CS name','GPS Satellites','GLONASS Satellites','Galileo Satellites','BeiDou Satellites','QZSS Satellites','Device type','Device serial number','Author'];
   const LINE_RE = /^L_\d+$/i;
   // metres per unit
-  const DRAW_M = { m: 1, mm: 0.001, ft: 0.3048, in: 0.0254, units: 1 };
+  const DRAW_M = { m: 1, mm: 0.001, ft: 0.3048, usft: 1200 / 3937, in: 0.0254, units: 1 };
   const GRID_M = { m: 1, usft: 1200 / 3937, ft: 0.3048 };
 
   // ---------- state ----------
@@ -342,11 +343,11 @@
     drawing: null, survey: [], header: null, cs: '', file: '', gridUnit: 'm',
     T: { a: 0, e: 0, n: 0 }, geo: false, placed: false,
     step: 1, pk: {}, flip: false, base: null,
-    view: null, fmt: 'csv', scope: 'new', outName: '', refLine: null, projName: ''
+    view: null, fmt: 'csv', scope: 'new', outName: '', refLine: null, projName: '', unitFrom: ''
   };
   const FRESH = JSON.stringify(G);   // a blank project, for fields an opened project file doesn't have
   const KEY = 'emlid.georef.v1';
-  const PERSIST = ['drawing', 'survey', 'header', 'cs', 'file', 'gridUnit', 'T', 'geo', 'placed', 'view', 'fmt', 'scope', 'outName', 'refLine', 'projName'];
+  const PERSIST = ['drawing', 'survey', 'header', 'cs', 'file', 'gridUnit', 'T', 'geo', 'placed', 'view', 'fmt', 'scope', 'outName', 'refLine', 'projName', 'unitFrom'];
   function save() { try { const o = {}; for (const k of PERSIST) o[k] = G[k]; localStorage.setItem(KEY, JSON.stringify(o)); } catch (e) { /* keep going in memory */ } }
   function load() { try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (o) Object.assign(G, o); } catch (e) {} }
   load();
@@ -469,6 +470,28 @@
     }
     return { feats, header: hasHdr ? hdr : null, cs };
   }
+  // The survey says what units it is in: a Shapefile's .prj, a DXF's $INSUNITS, or the coordinate system's name.
+  // Each returns { unit: 'm' | 'ft' | 'usft', from } or null.
+  function unitFromName(cs) {
+    if (!cs) return null;
+    if (/ftUS|US[ _]?survey[ _]?f(oo|ee)t|foot[ _]?us|us[ _]?ft|usft/i.test(cs)) return { unit: 'usft', from: `the coordinate system (${cs})` };
+    if (/\b(feet|foot|ft)\b|ftIntl/i.test(cs)) return { unit: 'ft', from: `the coordinate system (${cs})` };
+    return { unit: 'm', from: `the coordinate system (${cs})` };   // projected systems such as UTM are in metres unless they say feet
+  }
+  function unitFromPrj(prj) {
+    const u = [...prj.matchAll(/UNIT\["([^"]+)",\s*([0-9.eE+-]+)/g)].pop();   // the last UNIT is the projection's linear unit
+    if (!u) return null;
+    const f = parseFloat(u[2]), from = `the Shapefile's projection (${u[1].replace(/_/g, ' ')})`;
+    if (Math.abs(f - 1) < 1e-9) return { unit: 'm', from };
+    if (Math.abs(f - 1200 / 3937) < 1e-9) return { unit: 'usft', from };
+    if (Math.abs(f - 0.3048) < 1e-9) return { unit: 'ft', from };
+    return null;
+  }
+  function unitFromDxf(text) {
+    const m = /\$INSUNITS\s*\r?\n\s*70\s*\r?\n\s*(\d+)/.exec(text);
+    const u = m && { 6: 'm', 2: 'ft', 21: 'usft' }[+m[1]];
+    return u ? { unit: u, from: "the DXF file's units setting" } : null;
+  }
   function parseDXF(text) {
     const L = text.split(/\r?\n/), ents = []; let cur = null;
     for (let k = 0; k + 1 < L.length; k += 2) {
@@ -590,33 +613,40 @@
       }
     } catch (e) { return toast('Could not open that file. Export it again from Emlid Flow and retry.'); }
     const td = new TextDecoder(), shp = {}, skipped = [];
-    let feats = [], header = null, cs = '';
+    let feats = [], header = null, cs = '', units = null;
     for (const en of entries) {
       const ext = extOf(en.name), base = en.name.replace(/\.[^.]+$/, '');
       if (ext === 'csv' || ext === 'txt') { const r = parseSurveyCSV(td.decode(en.bytes)); feats.push(...r.feats); header = header || r.header; cs = cs || r.cs; }
-      else if (ext === 'dxf') feats.push(...parseDXF(td.decode(en.bytes)));
+      else if (ext === 'dxf') { const t = td.decode(en.bytes); feats.push(...parseDXF(t)); units = units || unitFromDxf(t); }
       else if (['shp', 'dbf', 'prj', 'shx', 'cpg'].includes(ext)) (shp[base] = shp[base] || {})[ext] = en.bytes;
       else skipped.push(en.name);
     }
     for (const [base, g] of Object.entries(shp)) {
       if (!g.shp) { skipped.push(`${base}.dbf (pick the .shp file with it)`); continue; }
       try { feats.push(...parseShp(bufOf(g.shp), g.dbf && bufOf(g.dbf), base)); } catch (e) { skipped.push(`${base}.shp`); continue; }
-      if (g.prj && !cs) { const m = /PROJCS\["([^"]+)"/.exec(td.decode(g.prj)); if (m) cs = m[1].replace(/_/g, ' '); }
+      if (g.prj) {
+        const prj = td.decode(g.prj), m = /PROJCS\["([^"]+)"/.exec(prj);
+        if (m && !cs) cs = m[1].replace(/_/g, ' ');
+        units = units || unitFromPrj(prj);
+      }
     }
     if (!feats.length) {
       const k = skipped.find(n => /\.km[lz]$/i.test(n));
       return toast(k ? 'KML only stores latitude/longitude. Export CSV, DXF or Shapefile instead.' : 'No points or lines found. Export CSV, DXF or Shapefile from Emlid Flow.');
     }
-    finishImport(feats, header, cs, files.length === 1 ? files[0].name : `${files.length} files`, skipped);
+    finishImport(feats, header, cs, files.length === 1 ? files[0].name : `${files.length} files`, skipped, units);
   }
-  function finishImport(feats, header, cs, label, skipped) {
+  function finishImport(feats, header, cs, label, skipped, units) {
     const hasLines = feats.some(f => f.kind === 'line' && f.pts.length > 1);
     if (!hasLines) return toast('This survey has no lines. Site Sketch needs linework to set the grid: survey at least one line in Emlid Flow (points with a line code), then export again.');
     pushUndo();
     const newSite = label !== G.file;
     G.survey = feats; G.header = header; G.cs = cs || G.cs || ''; G.file = label; G.outName = '';
     if (newSite) G.projName = '';
-    if (/feet|foot|ft\b/i.test(G.cs) && G.gridUnit === 'm') G.gridUnit = /us/i.test(G.cs) ? 'usft' : 'ft';
+    // the survey keeps the units it was made in: from the file itself, else from its coordinate system's name
+    const found = units || unitFromName(cs);
+    G.gridUnit = found ? found.unit : 'm';
+    G.unitFrom = found ? found.from : '';
     // a different survey is a different site: put the drawing on it and start the steps again
     if (newSite || !G.placed) {
       G.geo = false; G.step = 1; G.pk = {}; G.flip = false; G.refLine = null;
@@ -1129,7 +1159,8 @@
       bg = {
         lines: G.survey.filter(f => f.kind === 'line').map(f => ({ closed: !!f.closed, vertices: f.pts.map(toLocal) })),
         points: G.survey.filter(f => f.kind === 'point').map(f => [...toLocal(f.pts[0]), f.name || '']),
-        ...(G.refLine && G.refLine.A && G.refLine.B ? { gridLine: [toLocal(G.refLine.A), toLocal(G.refLine.B)] } : {})
+        ...(G.refLine && G.refLine.A && G.refLine.B ? { gridLine: [toLocal(G.refLine.A), toLocal(G.refLine.B)] } : {}),
+        units: G.gridUnit
       };
     }
     const text = JSON.stringify(bg);
@@ -1153,6 +1184,11 @@
     const deg = ((G.T.a * 180 / Math.PI) % 360 + 360) % 360;
     $('tStatus').textContent = G.survey.length && G.drawing ? `${G.geo && G.refLine ? 'Grid lined up with a survey line · ' : ''}Rotation ${deg.toFixed(3)}° · origin E ${G.T.e.toFixed(3)} N ${G.T.n.toFixed(3)}` : '';
     $('gridUnit').value = G.gridUnit;
+    const uWord = { m: 'metres', usft: 'US survey feet', ft: 'international feet' }[G.gridUnit];
+    $('unitNote').textContent = !G.survey.length ? ''
+      : G.unitFrom === 'you' ? `Units: ${uWord}, set by you.`
+      : G.unitFrom ? `Units: ${uWord}, read from ${G.unitFrom}.`
+      : `Units: the file doesn't say, so ${uWord} are assumed. Change them if the survey was measured in feet.`;
     render();
   }
 
@@ -1160,7 +1196,7 @@
   const closeSheets = () => sheets.forEach(s => { s.hidden = true; });
   $('loadSurvey2').addEventListener('click', () => $('file').click());
   $('file').addEventListener('change', e => { importFiles(e.target.files); e.target.value = ''; closeSheets(); });
-  $('gridUnit').addEventListener('change', e => { G.gridUnit = e.target.value; save(); refresh(); });
+  $('gridUnit').addEventListener('change', e => { G.gridUnit = e.target.value; G.unitFrom = 'you'; save(); refresh(); });
 
   function segPick(id, key) {
     $(id).addEventListener('click', e => {

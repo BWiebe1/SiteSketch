@@ -323,16 +323,21 @@
   <div class="group">
     <div class="seg"><button id="tPen" aria-pressed="false" title="Fingers move the view instead of drawing, so your palm doesn't draw">Pen only</button></div>
   </div>
+  <div class="group" title="The units the drawing is measured in. Changing them converts the drawing; real sizes stay the same.">
+    <label class="label" for="sqUnit">Drawing units</label>
+    <select id="sqUnit">
+      <option value="m" selected>metres</option>
+      <option value="ft">feet</option>
+      <option value="usft">US survey feet</option>
+      <option value="in">inches</option>
+      <option value="mm">millimetres</option>
+      <option value="units">no units</option>
+    </select>
+  </div>
   <div class="group">
     <label class="label" for="sqVal">Grid square</label>
     <input type="number" id="sqVal" value="1" min="0.001" step="any" inputmode="decimal">
-    <select id="sqUnit" aria-label="Unit">
-      <option value="m" selected>m</option>
-      <option value="mm">mm</option>
-      <option value="ft">ft</option>
-      <option value="in">in</option>
-      <option value="units">units</option>
-    </select>
+    <span class="tolend" id="sqUnitLabel">m</span>
   </div>
   <div class="group">
     <label class="label" for="roundTo">Round to</label>
@@ -865,7 +870,8 @@
   const toScreen = p => ({ x: p.x * view.s + view.x, y: p.y * view.s + view.y });
   const toWorld = p => ({ x: (p.x - view.x) / view.s, y: (p.y - view.y) / view.s });
   const sq = { val: 1, unit: 'm' };
-  const unitSuffix = () => (sq.unit === 'units' ? ' u' : ' ' + sq.unit);
+  const unitShort = u => ({ units: 'u', usft: 'ft' }[u] || u);   // US survey feet show as ft on lengths
+  const unitSuffix = () => ' ' + unitShort(sq.unit);
   const fmtNum = v => { const a = Math.abs(v); if (Math.abs(v - Math.round(v)) < 1e-6) return String(Math.round(v)); return a >= 100 ? v.toFixed(0) : a >= 10 ? v.toFixed(1) : v.toFixed(2); };
   const fmtLen = worldPx => fmtNum(worldPx / GRID * sq.val) + unitSuffix();
   let cssW = 0, cssH = 0;
@@ -1365,7 +1371,7 @@
     offPicks = offPicks.filter(k => edgeOf(k));
     document.getElementById('offCount').textContent = offPicks.length
       ? `${offPicks.length} segment${offPicks.length === 1 ? '' : 's'}` : 'Tap line segments';
-    document.getElementById('offUnit').textContent = sq.unit === 'units' ? 'u' : sq.unit;
+    document.getElementById('offUnit').textContent = unitShort(sq.unit);
     document.getElementById('offApply').disabled = !offPicks.length;
     for (const k of offPicks) {
       const [a, b] = edgeOf(k).map(toScreen);
@@ -1494,7 +1500,7 @@
     document.getElementById('divParts').hidden = !parts;
     document.getElementById('divDist').hidden = parts;
     document.getElementById('divN').textContent = `${divState.n} parts`;
-    document.getElementById('divUnit').textContent = sq.unit === 'units' ? 'u' : sq.unit;
+    document.getElementById('divUnit').textContent = unitShort(sq.unit);
     const n = divTs().length, g = segEnds(divState);
     const tooLong = !parts && g && parseFloat(divD.value) > 0 && !n;
     document.getElementById('divCount').textContent = tooLong ? `Longer than the segment (${fmtLen(dist(g.a, g.b))})` : `${n} point${n === 1 ? '' : 's'}`;
@@ -2426,7 +2432,7 @@
       const lab = document.createElement('label'); lab.htmlFor = 'edit' + i; lab.textContent = f.label;
       const inp = document.createElement('input');
       inp.type = 'number'; inp.id = 'edit' + i; inp.step = 'any'; if (!f.signed) inp.min = '0'; inp.inputMode = f.signed ? 'text' : 'decimal'; inp.value = f.value;
-      const un = document.createElement('span'); un.className = 'unit'; un.textContent = f.unit || (sq.unit === 'units' ? 'u' : sq.unit);
+      const un = document.createElement('span'); un.className = 'unit'; un.textContent = f.unit || (unitShort(sq.unit));
       row.append(lab, inp, un); pop.append(row);
       return inp;
     });
@@ -4193,7 +4199,7 @@
   const roundInput = document.getElementById('roundTo');
   // Changing the unit or the grid square keeps real sizes: 10 m becomes 32.81 ft, not 10 ft. The drawing's stored
   // coordinates (and the undo history) are rescaled, and the view with them, so nothing moves on screen.
-  const UNIT_M = { m: 1, mm: 0.001, ft: 0.3048, in: 0.0254 };
+  const UNIT_M = { m: 1, mm: 0.001, ft: 0.3048, usft: 1200 / 3937, in: 0.0254 };
   function rescaleWorld(k) {
     const all = new Set(shapes);
     for (const h of [...history, ...future]) for (const sh of h.shapes) all.add(sh);
@@ -4216,8 +4222,9 @@
     const k = (f0 && f1 ? f0 / f1 : 1) * oldVal / sq.val;   // old stored size → new stored size
     if (Math.abs(k - 1) > 1e-12) {
       rescaleWorld(k);
-      if (f0 && f1 && oldUnit !== sq.unit) toast(`Converted to ${sq.unit}: sizes stay the same`);
+      if (f0 && f1 && oldUnit !== sq.unit) toast(`Converted to ${sqUnit.selectedOptions[0].text}: sizes stay the same`);
     }
+    document.getElementById('sqUnitLabel').textContent = unitShort(sq.unit);
     const r = parseFloat(roundInput.value);
     opts.roundTo = r >= 0 ? r : 0;
     opts.snapW = opts.roundTo > 0 ? opts.roundTo / sq.val * GRID : 0;
@@ -4339,7 +4346,7 @@
     if (!data || !Array.isArray(data.shapes)) return false;
     if (Array.isArray(data.layers)) data.layers.slice(0, LAYER_COUNT).forEach((l, i) => { layers[i].on = l.on !== false; if (l.name) layers[i].name = String(l.name); });
     layers[layerNow - 1].on = true;
-    if (data.units) { sq.unit = data.units; const u = document.getElementById('sqUnit'); if (u) u.value = data.units; }
+    if (data.units) { sq.unit = data.units; const u = document.getElementById('sqUnit'); if (u) u.value = data.units; document.getElementById('sqUnitLabel').textContent = unitShort(sq.unit); }
     if (data.gridSquare > 0) { sq.val = data.gridSquare; const g = document.getElementById('sqVal'); if (g) g.value = data.gridSquare; }
     const k = sq.val / GRID;
     const toWorldRing = ring => ring.map(([x, y]) => ({ x: x / k, y: -y / k }));
@@ -4434,6 +4441,9 @@
     else if (m.type === 'background') {
       const first = !background;
       background = m.background || null;
+      if (background && background.units && !shapes.length && background.units !== sq.unit && UNIT_M[background.units]) {
+        sqUnit.value = background.units; readUnits();   // a new drawing starts in the survey's units
+      }
       if (first && background && !shapes.length) fitAll();   // show the survey when there is nothing drawn yet
       requestDraw();
     }
